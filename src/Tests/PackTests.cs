@@ -32,6 +32,11 @@ public class PackTests
         Assert.Contains("Readme", azureCli);
         Assert.DoesNotContain("win-arm64", azureCli);
 
+        var payload = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "payload.ps1"));
+        // PowerShell automatic OS variables are case-insensitive and read-only; assigning
+        // $isLinux overwrites $IsLinux and fails the linux Payload restore on CI.
+        Assert.DoesNotMatch(@"(?im)^\s*\$is(Linux|Windows|MacOS)\s*=", payload);
+
         var packTargets = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "Azure.Cli.pack.targets"));
         Assert.Contains("WriteAzureCliRuntimeJson", packTargets);
         Assert.Contains("PackAzureCliPayload", packTargets);

@@ -246,9 +246,9 @@ switch ($Rid) {
         $os = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
         $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
         $needArm = $Rid -eq 'linux-arm64'
-        $isLinux = $IsLinux
+        # $IsLinux/$IsWindows/$IsMacOS are read-only automatic variables (case-insensitive).
         $isArm = $arch -eq [System.Runtime.InteropServices.Architecture]::Arm64
-        if (-not $isLinux -or ($needArm -xor $isArm)) {
+        if (-not $IsLinux -or ($needArm -xor $isArm)) {
             throw "linux Payload for $Rid must be built on a matching linux runner (got $os $arch)."
         }
         $sources = Get-SourcesRoot $AzureCliVersion
