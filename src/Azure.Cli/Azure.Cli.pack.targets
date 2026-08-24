@@ -16,7 +16,7 @@
   <Target Name="RestoreAzureCliPayload"
           BeforeTargets="BeforeCompile;GetCopyToOutputDirectoryItems;AssignTargetPaths"
           Condition="'$(DesignTimeBuild)' != 'true'"
-          Inputs="$(MSBuildThisFileDirectory)payload.ps1;$(MSBuildThisFileDirectory)..\..\azure-cli.version"
+          Inputs="$(MSBuildThisFileDirectory)payload.ps1;$(MSBuildThisFileDirectory)payload.functions.ps1;$(MSBuildThisFileDirectory)..\..\azure-cli.version"
           Outputs="$(AzureCliPayloadRoot)\.payload">
     <Error Condition="'$(AzureCliVersion)' == ''" Text="AzureCliVersion is empty; expected azure-cli.version at the repo root." />
     <PropertyGroup>

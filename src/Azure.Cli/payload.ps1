@@ -34,6 +34,7 @@ New-Item -ItemType Directory -Path $OutDir | Out-Null
 
 $cache = Join-Path ([System.IO.Path]::GetDirectoryName($OutDir)) 'cache'
 New-Item -ItemType Directory -Path $cache -Force | Out-Null
+. (Join-Path $PSScriptRoot 'payload.functions.ps1')
 
 function Get-PythonVersionFromSources([string] $SourcesRoot) {
     $buildCmd = Join-Path $SourcesRoot 'build_scripts/windows/scripts/build.cmd'
@@ -46,31 +47,6 @@ function Get-PythonVersionFromSources([string] $SourcesRoot) {
         }
     }
     throw "PYTHON_VERSION not found in $buildCmd"
-}
-
-function Get-GitHubHeaders {
-    $headers = @{ 'User-Agent' = 'azx-payload' }
-    if ($env:GH_TOKEN) {
-        $headers['Authorization'] = "Bearer $($env:GH_TOKEN)"
-    }
-    elseif ($env:GITHUB_TOKEN) {
-        $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
-    }
-    return $headers
-}
-
-function Save-Url([string] $Url, [string] $Dest) {
-    if (Test-Path $Dest) {
-        Write-Host "Cached $Dest"
-        return
-    }
-    Write-Host "Downloading $Url"
-    Invoke-WebRequest -Uri $Url -OutFile $Dest -Headers (Get-GitHubHeaders) -MaximumRedirection 5
-}
-
-function Expand-TarGz([string] $Archive, [string] $Dest) {
-    New-Item -ItemType Directory -Path $Dest -Force | Out-Null
-    tar -xf $Archive -C $Dest
 }
 
 function Get-PbsTriple([string] $PayloadRid) {
@@ -93,22 +69,6 @@ function Get-PbsAsset([string] $PythonVersion, [string] $Triple) {
         }
     }
     throw "No python-build-standalone install_only_stripped asset for CPython $PythonVersion on $Triple."
-}
-
-function Get-SourcesRoot([string] $Version) {
-    $zip = Join-Path $cache "azure-cli-$Version-src.zip"
-    Save-Url "https://github.com/Azure/azure-cli/archive/refs/tags/azure-cli-$Version.zip" $zip
-    $extract = Join-Path $cache "src-$Version"
-    $inner = Join-Path $extract "azure-cli-azure-cli-$Version"
-    if (-not (Test-Path $inner)) {
-        if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
-        New-Item -ItemType Directory -Path $extract | Out-Null
-        tar -xf $zip -C $extract
-    }
-    if (-not (Test-Path $inner)) {
-        throw "Unexpected sources layout under $extract"
-    }
-    return $inner
 }
 
 function Write-UnixLauncher([string] $Root) {

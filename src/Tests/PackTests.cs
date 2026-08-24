@@ -36,10 +36,12 @@ public class PackTests
         // PowerShell automatic OS variables are case-insensitive and read-only; assigning
         // $isLinux overwrites $IsLinux and fails the linux Payload restore on CI.
         Assert.DoesNotMatch(@"(?im)^\s*\$is(Linux|Windows|MacOS)\s*=", payload);
+        Assert.Contains("payload.functions.ps1", payload);
 
         var packTargets = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "Azure.Cli.pack.targets"));
         Assert.Contains("WriteAzureCliRuntimeJson", packTargets);
         Assert.Contains("PackAzureCliPayload", packTargets);
+        Assert.Contains("payload.functions.ps1", packTargets);
         Assert.Contains("$(AzureCliPackageId).$(RuntimeIdentifier)", packTargets);
         Assert.DoesNotContain("runtimes/$(RuntimeIdentifier)/native/", packTargets);
 
@@ -165,6 +167,63 @@ public class PackTests
     {
         var pin = File.ReadAllText(Path.Combine(FindRepoRoot(), "azure-cli.version")).Trim();
         Assert.Matches(@"^\d+\.\d+\.\d+$", pin);
+    }
+
+    [Fact]
+    public void Payload_sources_use_github_tarball_not_zip_via_tar()
+    {
+        var repo = FindRepoRoot();
+        var functions = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1"));
+        Assert.Contains("azure-cli-$Version.tar.gz", functions);
+        Assert.Contains("archive/refs/tags/azure-cli-$Version.tar.gz", functions);
+        Assert.Contains("azure-cli-$Version-src.tar.gz", functions);
+        Assert.DoesNotContain("archive/refs/tags/azure-cli-$Version.zip", functions);
+        Assert.DoesNotContain("azure-cli-$Version-src.zip", functions);
+        Assert.Contains("Expand-TarGz", functions);
+        Assert.DoesNotContain("tar -xf $zip", functions);
+    }
+
+    [Fact]
+    public void GetSourcesRoot_unpacks_azure_cli_tag_tarball()
+    {
+        var repo = FindRepoRoot();
+        var version = File.ReadAllText(Path.Combine(repo, "azure-cli.version")).Trim();
+        var functions = Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1");
+        var cache = Path.Combine(repo, "src", "Azure.Cli", "obj", "payload", "cache");
+        Directory.CreateDirectory(cache);
+
+        var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+        {
+            WorkingDirectory = repo,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-Command");
+        var functionsLit = functions.Replace("'", "''", StringComparison.Ordinal);
+        var cacheLit = cache.Replace("'", "''", StringComparison.Ordinal);
+        start.ArgumentList.Add($$"""
+            $ErrorActionPreference = 'Stop'
+            Set-StrictMode -Version Latest
+            . '{{functionsLit}}'
+            $root = Get-SourcesRoot -Version '{{version}}' -CacheDir '{{cacheLit}}'
+            Write-Output $root
+            """);
+
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("Failed to start pwsh.");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        Assert.True(process.WaitForExit(180_000), "Get-SourcesRoot timed out." + Environment.NewLine + stdout + stderr);
+        Assert.True(process.ExitCode == 0, stdout + Environment.NewLine + stderr);
+
+        var inner = Path.Combine(cache, "src-" + version, "azure-cli-azure-cli-" + version);
+        Assert.True(Directory.Exists(inner), inner + Environment.NewLine + stdout + stderr);
+        Assert.True(File.Exists(Path.Combine(inner, "build_scripts", "windows", "scripts", "build.cmd")));
+        Assert.True(File.Exists(Path.Combine(cache, "azure-cli-" + version + "-src.tar.gz")));
+        Assert.False(File.Exists(Path.Combine(cache, "azure-cli-" + version + "-src.zip")));
+        Assert.Contains("azure-cli-azure-cli-" + version, stdout.Replace('\\', '/'), StringComparison.Ordinal);
     }
 
     static HashSet<string> ZipNames(string nupkg)
