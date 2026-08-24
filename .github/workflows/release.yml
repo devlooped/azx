@@ -1,0 +1,57 @@
+# Creates a draft GitHub release when azure-cli.version changes.
+# vars.RELEASE=PRERELEASE (default) → draft --prerelease (nupkgs 2.89.1-preview).
+# vars.RELEASE=STABLE and a prerelease already exists → uncheck prerelease (nupkgs 2.89.1).
+# Org webhook publishes drafts.
+name: release
+on:
+  push:
+    branches: [main]
+    paths:
+      - azure-cli.version
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+
+      - name: 🚀 draft
+        env:
+          CHANNEL: ${{ vars.RELEASE }}
+        run: |
+          set -euo pipefail
+          VERSION=$(tr -d '[:space:]' < azure-cli.version)
+          CHANNEL="${CHANNEL:-PRERELEASE}"
+          BODY=$(gh release view "azure-cli-$VERSION" --repo Azure/azure-cli --json body --jq '.body // ""')
+          {
+            printf '%s\n' "$BODY"
+            echo ""
+            echo "https://github.com/Azure/azure-cli/releases/tag/azure-cli-$VERSION"
+            echo "<!-- X -->"
+          } > release-notes.md
+
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            IS_PRE=$(gh release view "$VERSION" --json isPrerelease --jq '.isPrerelease')
+            if [ "$CHANNEL" = STABLE ] && [ "$IS_PRE" = true ]; then
+              gh release edit "$VERSION" --prerelease=false
+            else
+              echo "Release $VERSION already exists (prerelease=$IS_PRE channel=$CHANNEL)"
+            fi
+          else
+            if [ "$CHANNEL" = STABLE ]; then
+              gh release create "$VERSION" --draft --title "$VERSION" --notes-file release-notes.md
+            else
+              gh release create "$VERSION" --draft --prerelease --title "$VERSION" --notes-file release-notes.md
+            fi
+          fi

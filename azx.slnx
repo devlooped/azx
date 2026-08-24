@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/Azure.Cli/Azure.Cli.csproj" />
+  <Project Path="src/azx/azx.csproj" />
+  <Project Path="src/Tests/Tests.csproj" />
+</Solution>

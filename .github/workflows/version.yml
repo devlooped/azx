@@ -1,0 +1,39 @@
+# Fetches the latest stable Azure CLI GitHub release weekly
+# and persists the version to azure-cli.version at the repo root.
+name: version
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 🤖 defaults
+        uses: devlooped/actions-bot@v1
+        with:
+          name: ${{ secrets.BOT_NAME }}
+          email: ${{ secrets.BOT_EMAIL }}
+          gh_token: ${{ secrets.GH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ env.GH_TOKEN }}
+
+      - name: 💾 update version file
+        run: |
+          TAG=$(gh release view --repo Azure/azure-cli --json tagName --jq '.tagName')
+          VERSION="${TAG#azure-cli-}"
+          echo "$VERSION" > azure-cli.version
+          git add azure-cli.version
+          (git commit -m "⬆️ Update Azure CLI to $VERSION" && git push) || echo "No changes to commit"

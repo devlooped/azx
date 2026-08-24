@@ -1,0 +1,38 @@
+<Project>
+  <!--
+    Direct PackageReference and P2P import. Copies the Payload tree to output as az/
+    with paths intact (do not use runtimes/{rid}/native/ — the SDK flattens that).
+  -->
+  <PropertyGroup>
+    <AzureCliTargetsImported>true</AzureCliTargetsImported>
+    <_AzureCliRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_AzureCliRid>
+    <_AzureCliRid Condition="'$(_AzureCliRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</_AzureCliRid>
+    <_AzureCliRid Condition="'$(_AzureCliRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</_AzureCliRid>
+    <_AzureCliRid Condition="'$(_AzureCliRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_AzureCliRid>
+    <_AzureCliRid Condition="'$(_AzureCliRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_AzureCliRid>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(AzureCliPayloadRoot)' == ''">
+    <_AzureCliVersion>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))))</_AzureCliVersion>
+    <_AzureCliPackageFolder>$([System.String]::Copy('azure.cli.$(_AzureCliRid)').ToLowerInvariant())</_AzureCliPackageFolder>
+    <AzureCliPayloadRoot>$(NuGetPackageRoot)$(_AzureCliPackageFolder)\$(_AzureCliVersion)\az</AzureCliPayloadRoot>
+  </PropertyGroup>
+
+  <Target Name="IncludeAzureCliPayload"
+          BeforeTargets="GetCopyToOutputDirectoryItems;AssignTargetPaths"
+          Condition="'$(AzureCliPayloadRoot)' != ''">
+    <Error
+      Condition="'$(RuntimeIdentifier)' != '' and !Exists('$(AzureCliPayloadRoot)')"
+      Text="Azure.Cli payload not found at '$(AzureCliPayloadRoot)'. Pack Azure.Cli -r $(RuntimeIdentifier) first and restore from $(PackageOutputPath)." />
+    <ItemGroup Condition="Exists('$(AzureCliPayloadRoot)')">
+      <_AzureCliPayloadFiles Include="$(AzureCliPayloadRoot)\**\*" />
+      <ContentWithTargetPath Include="@(_AzureCliPayloadFiles)">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <TargetPath>az\%(_AzureCliPayloadFiles.RecursiveDir)%(_AzureCliPayloadFiles.Filename)%(_AzureCliPayloadFiles.Extension)</TargetPath>
+        <Visible>false</Visible>
+        <Pack>false</Pack>
+      </ContentWithTargetPath>
+    </ItemGroup>
+  </Target>
+</Project>

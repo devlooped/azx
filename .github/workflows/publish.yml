@@ -1,0 +1,214 @@
+# Full RID matrix on GitHub release. nuget.org: -preview on prereleased, stable on released.
+
+name: publish
+on:
+  release:
+    types: [prereleased, released]
+
+env:
+  DOTNET_NOLOGO: true
+  Configuration: Release
+  GeneratePackageOnBuild: false
+  Version: ${{ github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name }}
+  VersionLabel: refs/tags/${{ github.event.release.tag_name }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+  MSBUILDTERMINALLOGGER: auto
+  SLEET_FEED_URL: https://api.nuget.org/v3/index.json
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  payload:
+    name: payload-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+            rids: linux-x64 win-x64 osx-x64 osx-arm64
+            azx: linux-x64
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
+            rids: linux-arm64
+            azx: linux-arm64
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙ dotnet
+        uses: devlooped/actions-dotnet-env@v1
+
+      - name: ⚙ pip
+        run: sudo apt-get update && sudo apt-get install -y python3-pip
+
+      - name: 📦 pack
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = "-p:Version=$env:Version"
+          dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack.binlog
+          if ($LASTEXITCODE -ne 0) { throw "Azure.Cli pointer pack failed with exit code $LASTEXITCODE." }
+          foreach ($rid in '${{ matrix.rids }}'.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-$rid.binlog"
+            if ($LASTEXITCODE -ne 0) { throw "Azure.Cli $rid pack failed with exit code $LASTEXITCODE." }
+          }
+          dotnet pack src/azx/azx.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack-azx.binlog
+          if ($LASTEXITCODE -ne 0) { throw "azx pointer pack failed with exit code $LASTEXITCODE." }
+          dotnet pack src/azx/azx.csproj -c $env:Configuration -r ${{ matrix.azx }} $version -p:GeneratePackageOnBuild=false -bl:"pack-azx-${{ matrix.azx }}.binlog"
+          if ($LASTEXITCODE -ne 0) { throw "azx ${{ matrix.azx }} pack failed with exit code $LASTEXITCODE." }
+
+      - name: 🧪 test
+        if: matrix.name == 'linux-x64' || matrix.name == 'linux-arm64'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build -m:1 -p:Version=$env:Version -bl:build.binlog
+          if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE." }
+          dnx --yes retest -- --no-build
+          if ($LASTEXITCODE -ne 0) { throw "tests failed with exit code $LASTEXITCODE." }
+
+      - name: 📤 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.name }}
+          path: bin/*.nupkg
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 🐛 logs
+        uses: actions/upload-artifact@v4
+        if: runner.debug && always()
+        with:
+          name: logs-${{ matrix.name }}
+          path: '*.binlog'
+
+  azx:
+    name: azx-${{ matrix.rid }}
+    needs: payload
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-15-intel
+            rid: osx-x64
+          - os: macos-latest
+            rid: osx-arm64
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙ dotnet
+        uses: devlooped/actions-dotnet-env@v1
+
+      - name: 📥 packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: bin
+          merge-multiple: true
+
+      - name: 📦 pack
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet pack src/azx/azx.csproj -c $env:Configuration -r ${{ matrix.rid }} -p:Version=$env:Version -p:GeneratePackageOnBuild=false -bl:"pack-azx-${{ matrix.rid }}.binlog"
+          if ($LASTEXITCODE -ne 0) { throw "azx ${{ matrix.rid }} pack failed with exit code $LASTEXITCODE." }
+
+      - name: 🧪 azx --version
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Select-Object -First 1
+          $extract = Join-Path $env:RUNNER_TEMP "azx-${{ matrix.rid }}"
+          New-Item -ItemType Directory -Path $extract | Out-Null
+          tar -xf $nupkg.FullName -C $extract
+          $azx = Get-ChildItem $extract -Recurse -File | Where-Object { $_.Name -eq 'azx' -or $_.Name -eq 'azx.exe' } | Select-Object -First 1
+          if (-not $azx) { throw "azx executable not found in $($nupkg.Name)" }
+          & $azx.FullName --version
+          if ($LASTEXITCODE -ne 0) { throw "azx --version failed with exit code $LASTEXITCODE." }
+
+      - name: 📤 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.rid }}
+          path: bin/azx.${{ matrix.rid }}.*.nupkg
+          retention-days: 30
+          if-no-files-found: error
+
+  publish:
+    needs: [payload, azx]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🤘 checkout
+        uses: actions/checkout@v4
+
+      - name: ⚙ dotnet
+        uses: devlooped/actions-dotnet-env@v1
+
+      - name: 📥 packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: bin
+          merge-multiple: true
+
+      - name: ✅ validate
+        working-directory: bin
+        run: |
+          $invalid = Get-ChildItem -File -Filter "*.42.42*.nupkg"
+          if ($invalid) {
+            Write-Error "Found dev/local packages with disallowed 42.42* version prefix:`n$($invalid.Name -join "`n")"
+            exit 1
+          }
+          $names = Get-ChildItem -File -Filter *.nupkg | ForEach-Object Name
+          foreach ($need in @(
+            "Azure.Cli.$env:Version.nupkg",
+            "Azure.Cli.win-x64.$env:Version.nupkg",
+            "Azure.Cli.linux-x64.$env:Version.nupkg",
+            "Azure.Cli.linux-arm64.$env:Version.nupkg",
+            "Azure.Cli.osx-x64.$env:Version.nupkg",
+            "Azure.Cli.osx-arm64.$env:Version.nupkg",
+            "azx.$env:Version.nupkg",
+            "azx.win-x64.$env:Version.nupkg",
+            "azx.linux-x64.$env:Version.nupkg",
+            "azx.linux-arm64.$env:Version.nupkg",
+            "azx.osx-x64.$env:Version.nupkg",
+            "azx.osx-arm64.$env:Version.nupkg"
+          )) {
+            if ($names -notcontains $need) { throw "Missing $need" }
+          }
+
+      - name: 🚀 nuget
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: env.NUGET_API_KEY != ''
+        working-directory: bin
+        run: |
+          $packages = @(Get-ChildItem -Filter *.nupkg | Where-Object Name -NotLike '*.symbols.nupkg' | Sort-Object Name)
+          $runtimePackagePattern = '\.(win-x64|linux-x64|linux-arm64|osx-x64|osx-arm64)\.'
+          $runtimePackages = @($packages | Where-Object Name -Match $runtimePackagePattern)
+          $pointerPackages = @($packages | Where-Object Name -NotMatch $runtimePackagePattern)
+          if ($runtimePackages.Count -eq 0) { throw 'No RID-specific packages found.' }
+          if ($pointerPackages.Count -eq 0) { throw 'No pointer packages found.' }
+          foreach ($package in $runtimePackages) {
+            dotnet nuget push $package.FullName -s https://api.nuget.org/v3/index.json -k $env:NUGET_API_KEY --skip-duplicate
+          }
+          foreach ($package in $pointerPackages) {
+            dotnet nuget push $package.FullName -s https://api.nuget.org/v3/index.json -k $env:NUGET_API_KEY --skip-duplicate
+          }
+
+      - name: 🚀 sleet
+        env:
+          SLEET_CONNECTION: ${{ secrets.SLEET_CONNECTION }}
+        if: env.SLEET_CONNECTION != ''
+        shell: bash
+        run: |
+          dotnet tool update sleet -g --allow-downgrade --version $(curl -s --compressed ${{ vars.SLEET_FEED_URL }} | jq '.["sleet:version"]' -r)
+          sleet push bin --config none -f --verbose -p "SLEET_FEED_CONTAINER=nuget" -p "SLEET_FEED_CONNECTIONSTRING=${{ secrets.SLEET_CONNECTION }}" -p "SLEET_FEED_TYPE=azure"

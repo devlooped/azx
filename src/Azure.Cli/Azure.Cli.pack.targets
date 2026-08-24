@@ -1,0 +1,79 @@
+<Project>
+  <!-- Pointer vs RID pack. Imported only by Azure.Cli.csproj; not shipped. -->
+  <PropertyGroup>
+    <AzureCliPackageId Condition="'$(AzureCliPackageId)' == ''">$(PackageId)</AzureCliPackageId>
+    <NoWarn>$(NoWarn);NU5100;NU5110;NU5111;NU5118;NU5119;NU5128;NU5129</NoWarn>
+    <IncludeBuildOutput Condition="'$(RuntimeIdentifier)' == ''">true</IncludeBuildOutput>
+    <IncludeBuildOutput Condition="'$(RuntimeIdentifier)' != ''">false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking Condition="'$(RuntimeIdentifier)' != ''">true</SuppressDependenciesWhenPacking>
+    <PackageId Condition="'$(RuntimeIdentifier)' != ''">$(AzureCliPackageId).$(RuntimeIdentifier)</PackageId>
+    <TargetsForTfmSpecificContentInPackage Condition="'$(RuntimeIdentifier)' != ''">$(TargetsForTfmSpecificContentInPackage);PackAzureCliPayload</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <UsingTask TaskName="JsonPoke" AssemblyFile="$(PkgJsonPoke)\build\JsonPoke.dll" Condition="'$(PkgJsonPoke)' != '' and Exists('$(PkgJsonPoke)\build\JsonPoke.dll')" />
+  <UsingTask TaskName="JsonPeek" AssemblyFile="$(PkgJsonPeek)\build\JsonPeek.dll" Condition="'$(PkgJsonPeek)' != '' and Exists('$(PkgJsonPeek)\build\JsonPeek.dll')" />
+
+  <Target Name="RestoreAzureCliPayload"
+          BeforeTargets="BeforeCompile;GetCopyToOutputDirectoryItems;AssignTargetPaths"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="$(MSBuildThisFileDirectory)payload.ps1;$(MSBuildThisFileDirectory)..\..\azure-cli.version"
+          Outputs="$(AzureCliPayloadRoot)\.payload">
+    <Error Condition="'$(AzureCliVersion)' == ''" Text="AzureCliVersion is empty; expected azure-cli.version at the repo root." />
+    <PropertyGroup>
+      <_PayloadRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_PayloadRid>
+      <_PayloadRid Condition="'$(_PayloadRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</_PayloadRid>
+      <_PayloadRid Condition="'$(_PayloadRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</_PayloadRid>
+      <_PayloadRid Condition="'$(_PayloadRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_PayloadRid>
+      <_PayloadRid Condition="'$(_PayloadRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_PayloadRid>
+    </PropertyGroup>
+    <Error Condition="'$(_PayloadRid)' == ''" Text="Could not determine a Payload RID." />
+    <MakeDir Directories="$(AzureCliPayloadRoot)" />
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)payload.ps1&quot; -Rid &quot;$(_PayloadRid)&quot; -AzureCliVersion &quot;$(AzureCliVersion)&quot; -OutDir &quot;$(AzureCliPayloadRoot)&quot;" />
+  </Target>
+
+  <Target Name="WriteAzureCliRuntimeJson"
+          BeforeTargets="_GetPackageFiles;GenerateNuspec"
+          Condition="'$(RuntimeIdentifier)' == ''">
+    <PropertyGroup>
+      <_AzureCliRuntimeJson>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)runtime.json'))</_AzureCliRuntimeJson>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AzureCliRid Include="$(RuntimeIdentifiers)" />
+    </ItemGroup>
+    <Error Condition="'@(_AzureCliRid)' == ''" Text="Azure.Cli pointer pack requires RuntimeIdentifiers so runtime.json can map RID packages." />
+    <Error Condition="'$(PkgJsonPoke)' == '' or !Exists('$(PkgJsonPoke)\build\JsonPoke.dll')" Text="JsonPoke was not restored; cannot write runtime.json." />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName($(_AzureCliRuntimeJson)))" />
+    <WriteLinesToFile File="$(_AzureCliRuntimeJson)" Lines="{&quot;runtimes&quot;:{}}" Overwrite="true" />
+    <JsonPoke
+      ContentPath="$(_AzureCliRuntimeJson)"
+      Query="$.runtimes['%(_AzureCliRid.Identity)']['$(AzureCliPackageId)']['$(AzureCliPackageId).%(_AzureCliRid.Identity)']"
+      Value="'[$(Version), )'" />
+    <JsonPeek ContentPath="$(_AzureCliRuntimeJson)" Query="$.runtimes">
+      <Output TaskParameter="Result" ItemName="_AzureCliWrittenRuntimes" />
+    </JsonPeek>
+    <Error
+      Condition="'@(_AzureCliWrittenRuntimes)' == ''"
+      Text="runtime.json has no runtimes after writing RIDs from RuntimeIdentifiers." />
+    <ItemGroup>
+      <None Include="$(_AzureCliRuntimeJson)" Pack="true" PackagePath="runtime.json" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="StripTargetsFromRidPack" BeforeTargets="_GetPackageFiles;GenerateNuspec" Condition="'$(RuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <None Remove="build\**" />
+      <None Remove="buildTransitive\**" />
+      <Content Remove="build\**" />
+      <Content Remove="buildTransitive\**" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="PackAzureCliPayload" DependsOnTargets="RestoreAzureCliPayload" Condition="'$(RuntimeIdentifier)' != ''" Returns="@(TfmSpecificPackageFile)">
+    <Error Condition="!Exists('$(AzureCliPayloadRoot)')" Text="Azure.Cli RID pack requires a Payload at $(AzureCliPayloadRoot)." />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(AzureCliPayloadRoot)\**\*" Exclude="$(AzureCliPayloadRoot)\.payload">
+        <PackagePath>az/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+</Project>

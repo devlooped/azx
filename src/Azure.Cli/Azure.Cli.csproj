@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>Azure.Cli</PackageId>
+    <RootNamespace>Azure.Cli</RootNamespace>
+    <AssemblyName>Azure.Cli</AssemblyName>
+    <Description>Azure CLI payload for .NET: PackageReference Azure.Cli and publish/pack for your RID to get az/ plus Az.ResolvePath.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsPackable>true</IsPackable>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <AzureCliVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\azure-cli.version').Trim())</AzureCliVersion>
+    <_CurrentRid>$(NETCoreSdkPortableRuntimeIdentifier)</_CurrentRid>
+    <_CurrentRid Condition="'$(_CurrentRid)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</_CurrentRid>
+    <_CurrentRid Condition="'$(_CurrentRid)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-x64</_CurrentRid>
+    <_CurrentRid Condition="'$(_CurrentRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">osx-arm64</_CurrentRid>
+    <AzureCliPayloadRoot Condition="'$(RuntimeIdentifier)' != ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)$(BaseIntermediateOutputPath)payload\$(RuntimeIdentifier)'))</AzureCliPayloadRoot>
+    <AzureCliPayloadRoot Condition="'$(RuntimeIdentifier)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)$(BaseIntermediateOutputPath)payload\$(_CurrentRid)'))</AzureCliPayloadRoot>
+  </PropertyGroup>
+
+  <!--
+    Pointer (`dotnet pack`): lib/net10.0/Azure.Cli.dll + runtime.json + buildTransitive targets.
+    RID (`dotnet pack -r`): az/** Payload. Not PackAsTool — a DotnetTool pointer cannot be PackageReferenced (NU1212).
+  -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+    <PackageReference Include="JsonPeek" Version="1.3.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="JsonPoke" Version="1.3.0" PrivateAssets="all" GeneratePathProperty="true" />
+    <PackageReference Include="Readme" Version="1.2.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Import Project="Azure.Cli.pack.targets" />
+  <Import Project="buildTransitive\Azure.Cli.targets" Condition="'$(AzureCliTargetsImported)' != 'true'" />
+
+  <ItemGroup>
+    <None Include="buildTransitive\Azure.Cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="buildTransitive\Azure.Cli.targets" />
+    <None Include="build\Azure.Cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="build\Azure.Cli.targets" />
+  </ItemGroup>
+</Project>
