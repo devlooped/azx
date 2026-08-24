@@ -37,6 +37,7 @@ public class PackTests
         // $isLinux overwrites $IsLinux and fails the linux Payload restore on CI.
         Assert.DoesNotMatch(@"(?im)^\s*\$is(Linux|Windows|MacOS)\s*=", payload);
         Assert.Contains("payload.functions.ps1", payload);
+        Assert.Contains("Repair-CaseCollisions", payload);
 
         var packTargets = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "Azure.Cli.pack.targets"));
         Assert.Contains("WriteAzureCliRuntimeJson", packTargets);
@@ -224,6 +225,54 @@ public class PackTests
         Assert.True(File.Exists(Path.Combine(cache, "azure-cli-" + version + "-src.tar.gz")));
         Assert.False(File.Exists(Path.Combine(cache, "azure-cli-" + version + "-src.zip")));
         Assert.Contains("azure-cli-azure-cli-" + version, stdout.Replace('\\', '/'), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetCaseCollidingDuplicates_drops_terminfo_case_variants()
+    {
+        var repo = FindRepoRoot();
+        var functions = Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1");
+        var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+        {
+            WorkingDirectory = repo,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-Command");
+        var functionsLit = functions.Replace("'", "''", StringComparison.Ordinal);
+        start.ArgumentList.Add($$"""
+            $ErrorActionPreference = 'Stop'
+            Set-StrictMode -Version Latest
+            . '{{functionsLit}}'
+            $paths = @(
+                'python/share/terminfo/2/2621a',
+                'python/share/terminfo/2/2621A',
+                'python/share/terminfo/h/hp2621a',
+                'python/share/terminfo/h/hp2621A',
+                'python/share/terminfo/h/hp70092a',
+                'python/share/terminfo/h/hp70092A',
+                'bin/az'
+            )
+            foreach ($d in @(Get-CaseCollidingDuplicates $paths)) {
+                Write-Output $d
+            }
+            """);
+
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("Failed to start pwsh.");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        Assert.True(process.WaitForExit(60_000), stdout + Environment.NewLine + stderr);
+        Assert.True(process.ExitCode == 0, stdout + Environment.NewLine + stderr);
+
+        var dropped = stdout.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(3, dropped.Length);
+        Assert.Contains("python/share/terminfo/2/2621A", dropped);
+        Assert.Contains("python/share/terminfo/h/hp2621A", dropped);
+        Assert.Contains("python/share/terminfo/h/hp70092A", dropped);
+        Assert.DoesNotContain("bin/az", dropped);
     }
 
     static HashSet<string> ZipNames(string nupkg)

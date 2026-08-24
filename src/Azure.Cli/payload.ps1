@@ -232,5 +232,6 @@ switch ($Rid) {
     }
 }
 
+Repair-CaseCollisions $OutDir
 Set-Content -Path $sentinel -Value $expected -Encoding ascii
 Write-Host "Payload ready: $OutDir"

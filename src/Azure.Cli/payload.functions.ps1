@@ -52,3 +52,37 @@ function Get-SourcesRoot {
     }
     return $inner
 }
+
+function Get-CaseCollidingDuplicates([string[]] $RelativePaths) {
+    $dupes = [System.Collections.Generic.List[string]]::new()
+    if ($null -eq $RelativePaths -or $RelativePaths.Count -eq 0) {
+        return @()
+    }
+    $seen = @{}
+    foreach ($p in $RelativePaths) {
+        $key = $p.Replace('\', '/').ToLowerInvariant()
+        if ($seen.ContainsKey($key)) {
+            $dupes.Add($p)
+        }
+        else {
+            $seen[$key] = $true
+        }
+    }
+    return @($dupes)
+}
+
+function Repair-CaseCollisions([string] $Root) {
+    if (-not (Test-Path -LiteralPath $Root)) {
+        return
+    }
+    $rootFull = [System.IO.Path]::GetFullPath($Root).TrimEnd([char]'\', [char]'/')
+    $files = @(Get-ChildItem -LiteralPath $rootFull -Recurse -File -Force)
+    $rel = foreach ($f in $files) {
+        $f.FullName.Substring($rootFull.Length).TrimStart('\', '/')
+    }
+    foreach ($d in @(Get-CaseCollidingDuplicates $rel)) {
+        $path = Join-Path $rootFull $d
+        Write-Host "Removing case-colliding payload file $d"
+        Remove-Item -LiteralPath $path -Force
+    }
+}
