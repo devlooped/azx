@@ -5,7 +5,7 @@ NuGet pointer and per-RID payloads that put a working Azure CLI next to a .NET a
 ## Language
 
 **Pointer**:
-The `Azure.Cli` nupkg: `Az` plus `runtime.json` mapping each supported RID to a RID package.
+The `Azure.Cli` nupkg: `Cli` plus `runtime.json` mapping each supported RID to a RID package.
 _Avoid_: metapackage, tool package, native package
 
 **RID package**:
@@ -16,9 +16,9 @@ _Avoid_: native package, runtime pack, sidecar package
 The self-contained tree copied to the consuming app as `az/`, from which `az` is executed.
 _Avoid_: native files, native/, binaries, sidecar, nopython tarball (that is an upstream artifact, not what we ship)
 
-**Az**:
-The managed type in `Azure.Cli` whose `ResolvePath` returns the Payload's `az` executable (`az.cmd` on Windows).
-_Avoid_: Azx, AzureCli, WhatsBoxHost, ResolveBinaryPath
+**Cli**:
+The managed type whose `ResolvePath` returns the Payload's `az` executable (`az.cmd` on Windows). Call site is `Azure.Cli.ResolvePath()`.
+_Avoid_: Az, Azx, AzureCli, WhatsBoxHost, ResolveBinaryPath
 
 **azx**:
 The passthrough .NET tool that execs the Payload `az` with the same arguments. Primary human vehicle via `dnx`/`ndnx azx`.

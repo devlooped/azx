@@ -2,9 +2,9 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <PackageId>Azure.Cli</PackageId>
-    <RootNamespace>Azure.Cli</RootNamespace>
+    <RootNamespace>Azure</RootNamespace>
     <AssemblyName>Azure.Cli</AssemblyName>
-    <Description>Azure CLI payload for .NET: PackageReference Azure.Cli and publish/pack for your RID to get az/ plus Az.ResolvePath.</Description>
+    <Description>Azure CLI payload for .NET: PackageReference Azure.Cli and publish/pack for your RID to get az/ plus Azure.Cli.ResolvePath.</Description>
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>

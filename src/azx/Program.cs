@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Reflection;
-using Azure.Cli;
+using Azure;
 
 static class Program
 {
     static int Main(string[] args)
     {
-        var az = Az.ResolvePath();
+        var az = Cli.ResolvePath();
         if (args is ["--version"])
         {
             var version = typeof(Program).Assembly
