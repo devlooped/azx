@@ -20,8 +20,11 @@ public class ReleaseTests
     public void Publish_version_does_not_double_append_preview()
     {
         var publish = File.ReadAllText(Path.Combine(FindRepoRoot(), ".github", "workflows", "publish.yml"));
-        Assert.Contains("endsWith(github.event.release.tag_name, '-preview')", publish);
+        Assert.Contains("contains(github.event.release.tag_name, '-preview')", publish);
         Assert.Contains("format('{0}-preview', github.event.release.tag_name)", publish);
+        Assert.Contains("unix-exec.ps1", publish);
+        Assert.Contains("-Assert", publish);
+        Assert.Contains("GetUnixFileMode", publish);
         Assert.DoesNotContain(
             "Version: ${{ github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name }}",
             publish);
@@ -32,7 +35,10 @@ public class ReleaseTests
         Assert.Contains("rid: win-x64", publish);
         Assert.Contains("rid: osx-x64", publish);
         Assert.Contains("rid: osx-arm64", publish);
-        Assert.Contains("Expand-Archive", publish);
+        Assert.Contains("Expand-NupkgWithUnixModes", File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Azure.Cli", "unix-exec.ps1")));
+        Assert.Contains("-Destination", publish);
+        Assert.DoesNotContain("continue-on-error: true", publish);
+        Assert.DoesNotContain("Expand-Archive", publish);
         Assert.DoesNotContain("tar -xf $nupkg", publish);
         Assert.Contains("package-pointer", publish);
         Assert.Contains("bin/Azure.Cli.${{ matrix.rid }}.*.nupkg", publish);

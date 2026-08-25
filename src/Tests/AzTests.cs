@@ -54,6 +54,12 @@ public class AzTests
         }
 
         Assert.True(File.Exists(path), path);
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.True(
+                File.GetUnixFileMode(path).HasFlag(UnixFileMode.UserExecute),
+                path);
+        }
         var pin = File.ReadAllText(Path.Combine(FindRepoRoot(), "azure-cli.version")).Trim();
         var start = new System.Diagnostics.ProcessStartInfo
         {
@@ -85,6 +91,36 @@ public class AzTests
         Assert.True(process.WaitForExit(60_000));
         Assert.True(process.ExitCode == 0, process.StandardError.ReadToEnd());
         Assert.Equal(pin, output);
+    }
+
+    [Fact]
+    public void ResolvePath_sets_unix_execute_bits()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), "azx-chmod-" + Guid.NewGuid().ToString("n"));
+        var az = Path.Combine(root, "az", "bin", "az");
+        var py = Path.Combine(root, "az", "python", "bin", "python3");
+        Directory.CreateDirectory(Path.GetDirectoryName(az)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(py)!);
+        File.WriteAllText(az, "#!/bin/sh\n");
+        File.WriteAllText(py, "x");
+        var readWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite |
+                        UnixFileMode.GroupRead | UnixFileMode.OtherRead;
+        File.SetUnixFileMode(az, readWrite);
+        File.SetUnixFileMode(py, readWrite);
+
+        try
+        {
+            Assert.Equal(Path.GetFullPath(az), Az.ResolvePath(root));
+            Assert.True(File.GetUnixFileMode(az).HasFlag(UnixFileMode.UserExecute), az);
+            Assert.True(File.GetUnixFileMode(py).HasFlag(UnixFileMode.UserExecute), py);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     static string FindRepoRoot()

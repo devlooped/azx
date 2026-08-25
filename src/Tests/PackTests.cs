@@ -38,6 +38,21 @@ public class PackTests
         Assert.DoesNotMatch(@"(?im)^\s*\$is(Linux|Windows|MacOS)\s*=", payload);
         Assert.Contains("payload.functions.ps1", payload);
         Assert.Contains("Repair-CaseCollisions", payload);
+        Assert.Contains("chmod +x $launcher", payload);
+        Assert.Contains("python/bin", payload);
+
+        var unixExec = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "unix-exec.ps1"));
+        Assert.Contains("Test-UnixExecuteEntry", unixExec);
+        Assert.Contains("Set-NupkgUnixExecuteBits", unixExec);
+        Assert.Contains("Assert-NupkgUnixExecuteBits", unixExec);
+        Assert.Contains("Expand-NupkgWithUnixModes", unixExec);
+
+        var directoryTargets = File.ReadAllText(Path.Combine(repo, "src", "Directory.Build.targets"));
+        Assert.Contains("StampUnixExecuteBitsOnNupkg", directoryTargets);
+        Assert.Contains("unix-exec.ps1", directoryTargets);
+        var buildYml = File.ReadAllText(Path.Combine(repo, ".github", "workflows", "build.yml"));
+        Assert.Contains("unix-exec.ps1", buildYml);
+        Assert.Contains("-Assert", buildYml);
 
         var packTargets = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "Azure.Cli.pack.targets"));
         Assert.Contains("WriteAzureCliRuntimeJson", packTargets);
@@ -159,6 +174,82 @@ public class PackTests
             Assert.Contains(names, n => n.Replace('\\', '/').StartsWith("az/bin/", StringComparison.Ordinal));
             Assert.DoesNotContain(names, n => n.Replace('\\', '/').StartsWith("lib/", StringComparison.Ordinal));
             Assert.DoesNotContain(names, n => n.Replace('\\', '/').Contains("buildTransitive/", StringComparison.Ordinal));
+            var fileName = Path.GetFileName(ridPkg);
+            if (!fileName.Contains(".win-", StringComparison.Ordinal))
+                AssertUnixExecuteBits(ridPkg);
+        }
+
+        foreach (var azxRid in Directory.GetFiles(bin, "azx.*.nupkg")
+            .Where(f => !f.Contains(".symbols.", StringComparison.OrdinalIgnoreCase)
+                && SupportedRids.Any(r => Path.GetFileName(f).Contains("." + r + ".", StringComparison.Ordinal)
+                    && !Path.GetFileName(f).Contains(".win-", StringComparison.Ordinal))))
+        {
+            AssertUnixExecuteBits(azxRid);
+        }
+    }
+
+    [Fact]
+    public void Unix_exec_script_stamps_and_asserts_zip_modes()
+    {
+        var repo = FindRepoRoot();
+        var script = Path.Combine(repo, "src", "Azure.Cli", "unix-exec.ps1");
+        var scratch = Path.Combine(Path.GetTempPath(), "azx-unix-exec-" + Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(scratch);
+        try
+        {
+            var nupkg = Path.Combine(scratch, "azx.linux-x64.1.0.0.nupkg");
+            using (var archive = ZipFile.Open(nupkg, ZipArchiveMode.Create))
+            {
+                archive.CreateEntry("tools/any/linux-x64/az/bin/az");
+                archive.CreateEntry("tools/any/linux-x64/az/python/bin/python3");
+                archive.CreateEntry("tools/any/linux-x64/az/python/bin/__pycache__/x.pyc");
+                archive.CreateEntry("tools/any/linux-x64/azx");
+                archive.CreateEntry("tools/any/linux-x64/az/readme.txt");
+            }
+
+            using (var zip = ZipFile.OpenRead(nupkg))
+            {
+                Assert.False(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/az/bin/az")!.ExternalAttributes));
+            }
+
+            RunPwsh(repo, $"""
+                $ErrorActionPreference = 'Stop'
+                Set-StrictMode -Version Latest
+                . '{script.Replace("'", "''", StringComparison.Ordinal)}'
+                Set-NupkgUnixExecuteBits '{nupkg.Replace("'", "''", StringComparison.Ordinal)}'
+                Assert-NupkgUnixExecuteBits '{nupkg.Replace("'", "''", StringComparison.Ordinal)}'
+                """);
+
+            using (var zip = ZipFile.OpenRead(nupkg))
+            {
+                Assert.True(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/az/bin/az")!.ExternalAttributes));
+                Assert.True(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/az/python/bin/python3")!.ExternalAttributes));
+                Assert.True(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/azx")!.ExternalAttributes));
+                Assert.False(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/az/readme.txt")!.ExternalAttributes));
+                Assert.False(HasUnixExecute(zip.GetEntry("tools/any/linux-x64/az/python/bin/__pycache__/x.pyc")!.ExternalAttributes));
+            }
+
+            var dest = Path.Combine(scratch, "out");
+            RunPwsh(repo, $"""
+                $ErrorActionPreference = 'Stop'
+                Set-StrictMode -Version Latest
+                . '{script.Replace("'", "''", StringComparison.Ordinal)}'
+                Expand-NupkgWithUnixModes '{nupkg.Replace("'", "''", StringComparison.Ordinal)}' '{dest.Replace("'", "''", StringComparison.Ordinal)}'
+                """);
+            var extractedAz = Path.Combine(dest, "tools", "any", "linux-x64", "az", "bin", "az");
+            var extractedHost = Path.Combine(dest, "tools", "any", "linux-x64", "azx");
+            Assert.True(File.Exists(extractedAz), extractedAz);
+            Assert.True(File.Exists(extractedHost), extractedHost);
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.True(File.GetUnixFileMode(extractedAz).HasFlag(UnixFileMode.UserExecute), extractedAz);
+                Assert.True(File.GetUnixFileMode(extractedHost).HasFlag(UnixFileMode.UserExecute), extractedHost);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(scratch))
+                Directory.Delete(scratch, recursive: true);
         }
     }
 
@@ -385,6 +476,51 @@ public class PackTests
     {
         using var zip = ZipFile.OpenRead(nupkg);
         return zip.Entries.Select(e => e.FullName.Replace('\\', '/')).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    static bool HasUnixExecute(int externalAttributes)
+        => ((externalAttributes >> 16) & Convert.ToInt32("111", 8)) != 0;
+
+    static void AssertUnixExecuteBits(string nupkg)
+    {
+        using var zip = ZipFile.OpenRead(nupkg);
+        var az = zip.Entries.FirstOrDefault(e =>
+        {
+            var n = e.FullName.Replace('\\', '/');
+            return n == "az/bin/az" || n.EndsWith("/az/bin/az", StringComparison.Ordinal);
+        });
+        var python = zip.Entries.FirstOrDefault(e =>
+        {
+            var n = e.FullName.Replace('\\', '/');
+            return n.EndsWith("/python/bin/python3", StringComparison.Ordinal)
+                || n.EndsWith("/python/bin/python", StringComparison.Ordinal)
+                || n == "python/bin/python3"
+                || n == "python/bin/python";
+        });
+        Assert.True(az is not null, nupkg + " missing az/bin/az");
+        Assert.True(python is not null, nupkg + " missing python/bin/python3");
+        Assert.True(HasUnixExecute(az!.ExternalAttributes), az.FullName + " in " + nupkg);
+        Assert.True(HasUnixExecute(python!.ExternalAttributes), python.FullName + " in " + nupkg);
+    }
+
+    static void RunPwsh(string workingDirectory, string command)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+        {
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add(command);
+        using var process = System.Diagnostics.Process.Start(start)
+            ?? throw new InvalidOperationException("Failed to start pwsh.");
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        Assert.True(process.WaitForExit(60_000), stdout + Environment.NewLine + stderr);
+        Assert.True(process.ExitCode == 0, stdout + Environment.NewLine + stderr);
     }
 
     static string FindRepoRoot()

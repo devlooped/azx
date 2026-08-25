@@ -21,6 +21,34 @@ public static class Az
                 path);
         }
 
+        if (!OperatingSystem.IsWindows())
+            EnsureUnixExecuteBits(path);
+
         return path;
+    }
+
+    // NuGet restore does not honor zip Unix modes; chmod on first resolve.
+    internal static void EnsureUnixExecuteBits(string azPath)
+    {
+        AddExecute(azPath);
+        var pythonBin = Path.GetFullPath(Path.Combine(azPath, "..", "..", "python", "bin"));
+        if (!Directory.Exists(pythonBin))
+            return;
+
+        foreach (var file in Directory.EnumerateFiles(pythonBin))
+            AddExecute(file);
+    }
+
+    static void AddExecute(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var mode = File.GetUnixFileMode(path);
+        const UnixFileMode exec = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+        if ((mode & UnixFileMode.UserExecute) != 0)
+            return;
+
+        File.SetUnixFileMode(path, mode | exec);
     }
 }

@@ -9,7 +9,7 @@ env:
   DOTNET_NOLOGO: true
   Configuration: Release
   GeneratePackageOnBuild: false
-  Version: ${{ endsWith(github.event.release.tag_name, '-preview') && github.event.release.tag_name || (github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name) }}
+  Version: ${{ contains(github.event.release.tag_name, '-preview') && github.event.release.tag_name || (github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name) }}
   VersionLabel: refs/tags/${{ github.event.release.tag_name }}
   GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   MSBUILDTERMINALLOGGER: auto
@@ -65,6 +65,20 @@ jobs:
           dotnet pack src/azx/azx.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-azx-$rid.binlog"
           if ($LASTEXITCODE -ne 0) { throw "azx $rid pack failed with exit code $LASTEXITCODE." }
 
+      - name: ✅ unix execute bits
+        if: matrix.rid != 'win-x64'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $pwd 'src/Azure.Cli/unix-exec.ps1'
+          $azure = Get-ChildItem bin -Filter "Azure.Cli.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          $azx = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          if (-not $azure) { throw "Azure.Cli.${{ matrix.rid }} nupkg not found" }
+          if (-not $azx) { throw "azx.${{ matrix.rid }} nupkg not found" }
+          foreach ($pkg in @($azure, $azx)) {
+            & pwsh -NoProfile -File $script -Nupkg $pkg.FullName -Assert
+            if ($LASTEXITCODE -ne 0) { throw "unix execute bits missing in $($pkg.Name)" }
+          }
+
       - name: 📤 package
         uses: actions/upload-artifact@v4
         with:
@@ -89,16 +103,27 @@ jobs:
           if-no-files-found: error
 
       - name: 🧪 azx --version
-        continue-on-error: true
         run: |
           $ErrorActionPreference = 'Stop'
-          $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Select-Object -First 1
+          $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
           if (-not $nupkg) { throw "azx.${{ matrix.rid }} nupkg not found" }
           $extract = Join-Path $env:RUNNER_TEMP "azx-${{ matrix.rid }}"
-          New-Item -ItemType Directory -Path $extract | Out-Null
-          Expand-Archive -LiteralPath $nupkg.FullName -DestinationPath $extract -Force
+          $script = Join-Path $pwd 'src/Azure.Cli/unix-exec.ps1'
+          & pwsh -NoProfile -File $script -Nupkg $nupkg.FullName -Destination $extract
+          if ($LASTEXITCODE -ne 0) { throw "nupkg extract failed for $($nupkg.Name)" }
           $azx = Get-ChildItem $extract -Recurse -File | Where-Object { $_.Name -eq 'azx' -or $_.Name -eq 'azx.exe' } | Select-Object -First 1
           if (-not $azx) { throw "azx executable not found in $($nupkg.Name)" }
+          if (-not $IsWindows) {
+            $az = Get-ChildItem $extract -Recurse -File | Where-Object { $_.FullName.Replace('\', '/') -like '*/az/bin/az' } | Select-Object -First 1
+            if (-not $az) { throw "az/bin/az not found in $($nupkg.Name)" }
+            $exec = [System.IO.UnixFileMode]::UserExecute
+            if (([System.IO.File]::GetUnixFileMode($azx.FullName) -band $exec) -eq 0) {
+              throw "azx is not executable after extract: $($azx.FullName)"
+            }
+            if (([System.IO.File]::GetUnixFileMode($az.FullName) -band $exec) -eq 0) {
+              throw "az/bin/az is not executable after extract: $($az.FullName)"
+            }
+          }
           & $azx.FullName --version
           if ($LASTEXITCODE -ne 0) { throw "azx --version failed with exit code $LASTEXITCODE." }
 

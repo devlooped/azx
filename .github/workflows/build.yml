@@ -70,6 +70,19 @@ jobs:
           dotnet pack src/azx/azx.csproj -c $env:Configuration -r linux-x64 -p:GeneratePackageOnBuild=false -bl:pack-azx-linux-x64.binlog
           if ($LASTEXITCODE -ne 0) { throw "azx linux-x64 pack failed with exit code $LASTEXITCODE." }
 
+      - name: ✅ unix execute bits
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $pwd 'src/Azure.Cli/unix-exec.ps1'
+          $azure = Get-ChildItem bin -Filter "Azure.Cli.linux-x64.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          $azx = Get-ChildItem bin -Filter "azx.linux-x64.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          if (-not $azure) { throw "Azure.Cli.linux-x64 nupkg not found" }
+          if (-not $azx) { throw "azx.linux-x64 nupkg not found" }
+          foreach ($pkg in @($azure, $azx)) {
+            & pwsh -NoProfile -File $script -Nupkg $pkg.FullName -Assert
+            if ($LASTEXITCODE -ne 0) { throw "unix execute bits missing in $($pkg.Name)" }
+          }
+
       - name: 📤 package
         uses: actions/upload-artifact@v4
         with:

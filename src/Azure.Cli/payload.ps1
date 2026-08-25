@@ -87,6 +87,12 @@ exec "$PY" -sm azure.cli "$@"
 '@ | Set-Content -Path $launcher -Encoding ascii -NoNewline
     if (-not $IsWindows) {
         & chmod +x $launcher
+        $pyBin = Join-Path $Root 'python/bin'
+        if (Test-Path -LiteralPath $pyBin) {
+            Get-ChildItem -LiteralPath $pyBin -File | Where-Object { $_.Extension -ne '.pyc' } | ForEach-Object {
+                & chmod +x $_.FullName
+            }
+        }
     }
 }
 

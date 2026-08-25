@@ -222,6 +222,20 @@
   </Target>
 
 
+  <!--
+    dotnet pack writes 0644 for every regular file. Unix RID nupkgs must carry
+    +x on az, python/bin, and the azx host or restore/unzip cannot exec them.
+  -->
+  <Target Name="StampUnixExecuteBitsOnNupkg"
+          AfterTargets="Pack"
+          Condition="'$(IsPackable)' == 'true' and '$(RuntimeIdentifier)' != '' and !$(RuntimeIdentifier.Contains('win'))">
+    <ItemGroup>
+      <_UnixExecNupkg Include="@(NuGetPackOutput)" Condition="'%(Extension)' == '.nupkg' and !$([System.String]::Copy('%(Filename)').Contains('.symbols'))" />
+    </ItemGroup>
+    <Error Condition="'@(_UnixExecNupkg)' == ''" Text="Pack produced no nupkg to stamp unix execute bits onto." />
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)Azure.Cli/unix-exec.ps1&quot; -Nupkg &quot;%(_UnixExecNupkg.Identity)&quot;" />
+  </Target>
+
   <!-- Import before UsingTask because first to declare tasks wins -->
   <Import Project="Directory.targets" Condition="Exists('Directory.targets')"/>
   <Import Project="Directory.targets.user" Condition="Exists('Directory.targets.user')" />
