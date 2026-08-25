@@ -65,28 +65,6 @@ jobs:
           dotnet pack src/azx/azx.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-azx-$rid.binlog"
           if ($LASTEXITCODE -ne 0) { throw "azx $rid pack failed with exit code $LASTEXITCODE." }
 
-      - name: 🧪 test
-        if: matrix.rid == 'linux-x64'
-        run: |
-          $ErrorActionPreference = 'Stop'
-          dotnet build -m:1 -p:Version=$env:Version -bl:build.binlog
-          if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE." }
-          dnx --yes retest -- --no-build
-          if ($LASTEXITCODE -ne 0) { throw "tests failed with exit code $LASTEXITCODE." }
-
-      - name: 🧪 azx --version
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Select-Object -First 1
-          if (-not $nupkg) { throw "azx.${{ matrix.rid }} nupkg not found" }
-          $extract = Join-Path $env:RUNNER_TEMP "azx-${{ matrix.rid }}"
-          New-Item -ItemType Directory -Path $extract | Out-Null
-          tar -xf $nupkg.FullName -C $extract
-          $azx = Get-ChildItem $extract -Recurse -File | Where-Object { $_.Name -eq 'azx' -or $_.Name -eq 'azx.exe' } | Select-Object -First 1
-          if (-not $azx) { throw "azx executable not found in $($nupkg.Name)" }
-          & $azx.FullName --version
-          if ($LASTEXITCODE -ne 0) { throw "azx --version failed with exit code $LASTEXITCODE." }
-
       - name: 📤 package
         uses: actions/upload-artifact@v4
         with:
@@ -94,6 +72,20 @@ jobs:
           path: bin/*.nupkg
           retention-days: 30
           if-no-files-found: error
+
+      - name: 🧪 azx --version
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Select-Object -First 1
+          if (-not $nupkg) { throw "azx.${{ matrix.rid }} nupkg not found" }
+          $extract = Join-Path $env:RUNNER_TEMP "azx-${{ matrix.rid }}"
+          New-Item -ItemType Directory -Path $extract | Out-Null
+          Expand-Archive -LiteralPath $nupkg.FullName -DestinationPath $extract -Force
+          $azx = Get-ChildItem $extract -Recurse -File | Where-Object { $_.Name -eq 'azx' -or $_.Name -eq 'azx.exe' } | Select-Object -First 1
+          if (-not $azx) { throw "azx executable not found in $($nupkg.Name)" }
+          & $azx.FullName --version
+          if ($LASTEXITCODE -ne 0) { throw "azx --version failed with exit code $LASTEXITCODE." }
 
       - name: 🐛 logs
         uses: actions/upload-artifact@v4

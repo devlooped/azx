@@ -94,7 +94,6 @@ public class PackTests
         };
         start.ArgumentList.Add("msbuild");
         start.ArgumentList.Add(project);
-        start.ArgumentList.Add("-restore");
         start.ArgumentList.Add("-t:WriteAzureCliRuntimeJson");
         start.ArgumentList.Add("-p:Configuration=" + configuration);
         start.ArgumentList.Add("-p:DesignTimeBuild=true");

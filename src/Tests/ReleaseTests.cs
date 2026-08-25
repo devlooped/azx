@@ -32,6 +32,8 @@ public class ReleaseTests
         Assert.Contains("rid: win-x64", publish);
         Assert.Contains("rid: osx-x64", publish);
         Assert.Contains("rid: osx-arm64", publish);
+        Assert.Contains("Expand-Archive", publish);
+        Assert.DoesNotContain("tar -xf $nupkg", publish);
     }
 
     static string FindRepoRoot()
