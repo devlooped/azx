@@ -1,9 +1,9 @@
-namespace Azure.Cli;
+namespace Azure;
 
 /// <summary>
 /// Resolves the Payload's <c>az</c> executable copied next to the app as <c>az/bin/az</c>.
 /// </summary>
-public static class Az
+public static class Cli
 {
     /// <summary>
     /// Returns the full path to <c>az.cmd</c> (Windows) or <c>az</c> under

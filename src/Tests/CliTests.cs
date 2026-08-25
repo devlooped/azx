@@ -1,8 +1,8 @@
-using Azure.Cli;
+using Azure;
 
 namespace Tests;
 
-public class AzTests
+public class CliTests
 {
     [Fact]
     public void ResolvePath_finds_payload_under_az_bin()
@@ -16,7 +16,7 @@ public class AzTests
 
         try
         {
-            Assert.Equal(Path.GetFullPath(expected), Az.ResolvePath(root));
+            Assert.Equal(Path.GetFullPath(expected), Cli.ResolvePath(root));
         }
         finally
         {
@@ -31,7 +31,7 @@ public class AzTests
         Directory.CreateDirectory(root);
         try
         {
-            var ex = Assert.Throws<FileNotFoundException>(() => Az.ResolvePath(root));
+            var ex = Assert.Throws<FileNotFoundException>(() => Cli.ResolvePath(root));
             Assert.Contains("az", ex.FileName, StringComparison.OrdinalIgnoreCase);
         }
         finally
@@ -46,7 +46,7 @@ public class AzTests
         string path;
         try
         {
-            path = Az.ResolvePath();
+            path = Cli.ResolvePath();
         }
         catch (FileNotFoundException)
         {
@@ -113,7 +113,7 @@ public class AzTests
 
         try
         {
-            Assert.Equal(Path.GetFullPath(az), Az.ResolvePath(root));
+            Assert.Equal(Path.GetFullPath(az), Cli.ResolvePath(root));
             Assert.True(File.GetUnixFileMode(az).HasFlag(UnixFileMode.UserExecute), az);
             Assert.True(File.GetUnixFileMode(py).HasFlag(UnixFileMode.UserExecute), py);
         }
