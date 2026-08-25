@@ -34,6 +34,8 @@ public class ReleaseTests
         Assert.Contains("rid: osx-arm64", publish);
         Assert.Contains("Expand-Archive", publish);
         Assert.DoesNotContain("tar -xf $nupkg", publish);
+        Assert.Contains("package-pointer", publish);
+        Assert.Contains("bin/Azure.Cli.${{ matrix.rid }}.*.nupkg", publish);
     }
 
     static string FindRepoRoot()
