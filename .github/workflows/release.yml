@@ -1,7 +1,10 @@
 # Creates a draft GitHub release when azure-cli.version changes.
 # vars.RELEASE=PRERELEASE (default) → tag/title {version}-preview, draft --prerelease.
 # vars.RELEASE=STABLE → tag/title {version}, draft (not a prerelease). Never edits an existing preview.
-# Org webhook publishes drafts.
+# Org webhook publishes drafts. Always append <!-- !X --> and <!-- nosponsors -->
+# so SponsorLink does not post to X or inject a sponsors section: the notes are
+# Upstream Azure CLI notes, not ours. <!-- X --> is the opposite (force-announce)
+# and must not appear.
 name: release
 on:
   push:
@@ -43,7 +46,8 @@ jobs:
             printf '%s\n' "$BODY"
             echo ""
             echo "https://github.com/Azure/azure-cli/releases/tag/azure-cli-$VERSION"
-            echo "<!-- X -->"
+            echo "<!-- !X -->"
+            echo "<!-- nosponsors -->"
           } > release-notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then

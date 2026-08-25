@@ -17,6 +17,15 @@ public class ReleaseTests
     }
 
     [Fact]
+    public void Draft_notes_opt_out_of_sponsorlink_side_effects()
+    {
+        var release = File.ReadAllText(Path.Combine(FindRepoRoot(), ".github", "workflows", "release.yml"));
+        Assert.Contains("echo \"<!-- !X -->\"", release);
+        Assert.DoesNotContain("echo \"<!-- X -->\"", release);
+        Assert.Contains("echo \"<!-- nosponsors -->\"", release);
+    }
+
+    [Fact]
     public void Publish_version_does_not_double_append_preview()
     {
         var publish = File.ReadAllText(Path.Combine(FindRepoRoot(), ".github", "workflows", "publish.yml"));
