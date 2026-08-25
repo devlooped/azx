@@ -21,79 +21,16 @@ defaults:
 
 jobs:
   payload:
-    name: payload-${{ matrix.name }}
+    name: payload-${{ matrix.rid }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            name: linux-x64
-            rids: linux-x64 win-x64 osx-x64 osx-arm64
-            azx: linux-x64
+            rid: linux-x64
           - os: ubuntu-24.04-arm
-            name: linux-arm64
-            rids: linux-arm64
-            azx: linux-arm64
-    steps:
-      - name: 🤘 checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: ⚙ dotnet
-        uses: devlooped/actions-dotnet-env@v1
-
-      - name: ⚙ pip
-        run: sudo apt-get update && sudo apt-get install -y python3-pip
-
-      - name: 📦 pack
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $version = "-p:Version=$env:Version"
-          dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack.binlog
-          if ($LASTEXITCODE -ne 0) { throw "Azure.Cli pointer pack failed with exit code $LASTEXITCODE." }
-          foreach ($rid in '${{ matrix.rids }}'.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)) {
-            dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-$rid.binlog"
-            if ($LASTEXITCODE -ne 0) { throw "Azure.Cli $rid pack failed with exit code $LASTEXITCODE." }
-          }
-          dotnet pack src/azx/azx.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack-azx.binlog
-          if ($LASTEXITCODE -ne 0) { throw "azx pointer pack failed with exit code $LASTEXITCODE." }
-          dotnet pack src/azx/azx.csproj -c $env:Configuration -r ${{ matrix.azx }} $version -p:GeneratePackageOnBuild=false -bl:"pack-azx-${{ matrix.azx }}.binlog"
-          if ($LASTEXITCODE -ne 0) { throw "azx ${{ matrix.azx }} pack failed with exit code $LASTEXITCODE." }
-
-      - name: 🧪 test
-        if: matrix.name == 'linux-x64' || matrix.name == 'linux-arm64'
-        run: |
-          $ErrorActionPreference = 'Stop'
-          dotnet build -m:1 -p:Version=$env:Version -bl:build.binlog
-          if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE." }
-          dnx --yes retest -- --no-build
-          if ($LASTEXITCODE -ne 0) { throw "tests failed with exit code $LASTEXITCODE." }
-
-      - name: 📤 package
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-${{ matrix.name }}
-          path: bin/*.nupkg
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: 🐛 logs
-        uses: actions/upload-artifact@v4
-        if: runner.debug && always()
-        with:
-          name: logs-${{ matrix.name }}
-          path: '*.binlog'
-
-  azx:
-    name: azx-${{ matrix.rid }}
-    needs: payload
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
+            rid: linux-arm64
           - os: windows-latest
             rid: win-x64
           - os: macos-15-intel
@@ -109,23 +46,39 @@ jobs:
       - name: ⚙ dotnet
         uses: devlooped/actions-dotnet-env@v1
 
-      - name: 📥 packages
-        uses: actions/download-artifact@v4
-        with:
-          pattern: package-*
-          path: bin
-          merge-multiple: true
+      - name: ⚙ pip
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-pip
 
       - name: 📦 pack
         run: |
           $ErrorActionPreference = 'Stop'
-          dotnet pack src/azx/azx.csproj -c $env:Configuration -r ${{ matrix.rid }} -p:Version=$env:Version -p:GeneratePackageOnBuild=false -bl:"pack-azx-${{ matrix.rid }}.binlog"
-          if ($LASTEXITCODE -ne 0) { throw "azx ${{ matrix.rid }} pack failed with exit code $LASTEXITCODE." }
+          $rid = '${{ matrix.rid }}'
+          $version = "-p:Version=$env:Version"
+          # Pointer packs restore the host RID Payload; RID packs reuse that tree.
+          dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack.binlog
+          if ($LASTEXITCODE -ne 0) { throw "Azure.Cli pointer pack failed with exit code $LASTEXITCODE." }
+          dotnet pack src/Azure.Cli/Azure.Cli.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-$rid.binlog"
+          if ($LASTEXITCODE -ne 0) { throw "Azure.Cli $rid pack failed with exit code $LASTEXITCODE." }
+          dotnet pack src/azx/azx.csproj -c $env:Configuration $version -p:GeneratePackageOnBuild=false -bl:pointer-pack-azx.binlog
+          if ($LASTEXITCODE -ne 0) { throw "azx pointer pack failed with exit code $LASTEXITCODE." }
+          dotnet pack src/azx/azx.csproj -c $env:Configuration -r $rid $version -p:GeneratePackageOnBuild=false -bl:"pack-azx-$rid.binlog"
+          if ($LASTEXITCODE -ne 0) { throw "azx $rid pack failed with exit code $LASTEXITCODE." }
+
+      - name: 🧪 test
+        if: matrix.rid == 'linux-x64'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build -m:1 -p:Version=$env:Version -bl:build.binlog
+          if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE." }
+          dnx --yes retest -- --no-build
+          if ($LASTEXITCODE -ne 0) { throw "tests failed with exit code $LASTEXITCODE." }
 
       - name: 🧪 azx --version
         run: |
           $ErrorActionPreference = 'Stop'
           $nupkg = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Select-Object -First 1
+          if (-not $nupkg) { throw "azx.${{ matrix.rid }} nupkg not found" }
           $extract = Join-Path $env:RUNNER_TEMP "azx-${{ matrix.rid }}"
           New-Item -ItemType Directory -Path $extract | Out-Null
           tar -xf $nupkg.FullName -C $extract
@@ -138,12 +91,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.rid }}
-          path: bin/azx.${{ matrix.rid }}.*.nupkg
+          path: bin/*.nupkg
           retention-days: 30
           if-no-files-found: error
 
+      - name: 🐛 logs
+        uses: actions/upload-artifact@v4
+        if: runner.debug && always()
+        with:
+          name: logs-${{ matrix.rid }}
+          path: '*.binlog'
+
   publish:
-    needs: [payload, azx]
+    needs: [payload]
     runs-on: ubuntu-latest
     steps:
       - name: 🤘 checkout

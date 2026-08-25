@@ -191,6 +191,7 @@ public class PackTests
         Assert.Contains("Expand-Zip $zip $OutDir", payload);
         Assert.DoesNotContain("tar -xf $zip", payload);
         Assert.Contains("Remove-UnusedPythonShare", payload);
+        Assert.Contains("Install-CliFromPyPI", payload);
     }
 
     [Fact]

@@ -113,6 +113,21 @@ function Get-MajorMinor([string] $PythonVersion) {
     return $Matches[1]
 }
 
+function Install-CliFromPyPI([string] $PythonExe, [string] $Version) {
+    & $PythonExe -m ensurepip --upgrade
+    if ($LASTEXITCODE -ne 0) {
+        $getPip = Join-Path $cache 'get-pip.py'
+        Save-Url 'https://bootstrap.pypa.io/get-pip.py' $getPip
+        & $PythonExe $getPip
+        if ($LASTEXITCODE -ne 0) { throw "get-pip.py failed with $LASTEXITCODE" }
+    }
+    & $PythonExe -m pip install --upgrade pip
+    if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed with $LASTEXITCODE" }
+    Write-Host "pip install azure-cli==$Version"
+    & $PythonExe -m pip install "azure-cli==$Version"
+    if ($LASTEXITCODE -ne 0) { throw "pip install azure-cli==$Version failed with $LASTEXITCODE" }
+}
+
 function Install-CliFromSources([string] $PythonExe, [string] $SourcesRoot) {
     & $PythonExe -m ensurepip --upgrade
     if ($LASTEXITCODE -ne 0) {
@@ -224,10 +239,16 @@ switch ($Rid) {
         $pythonVersion = Get-PythonVersionFromSources $sources
         Write-Host "PYTHON_VERSION=$pythonVersion"
         Install-Pbs $pythonVersion $Rid $OutDir
-        $majorMinor = Get-MajorMinor $pythonVersion
-        $site = Join-Path $OutDir "python/lib/python$majorMinor/site-packages"
-        $hostPy = Resolve-HostPython
-        Install-CliMacWheels $hostPy $site $AzureCliVersion $Rid $majorMinor
+        if ($IsMacOS) {
+            $py = Resolve-PbsPython $OutDir
+            Install-CliFromPyPI $py $AzureCliVersion
+        }
+        else {
+            $majorMinor = Get-MajorMinor $pythonVersion
+            $site = Join-Path $OutDir "python/lib/python$majorMinor/site-packages"
+            $hostPy = Resolve-HostPython
+            Install-CliMacWheels $hostPy $site $AzureCliVersion $Rid $majorMinor
+        }
         Write-UnixLauncher $OutDir
     }
 }

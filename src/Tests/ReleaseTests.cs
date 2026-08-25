@@ -25,7 +25,13 @@ public class ReleaseTests
         Assert.DoesNotContain(
             "Version: ${{ github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name }}",
             publish);
-        Assert.Contains("rids: linux-x64 win-x64 osx-x64 osx-arm64", publish);
+        Assert.DoesNotContain("rids: linux-x64 win-x64 osx-x64 osx-arm64", publish);
+        Assert.Contains("os: windows-latest", publish);
+        Assert.Contains("os: macos-latest", publish);
+        Assert.Contains("os: macos-15-intel", publish);
+        Assert.Contains("rid: win-x64", publish);
+        Assert.Contains("rid: osx-x64", publish);
+        Assert.Contains("rid: osx-arm64", publish);
     }
 
     static string FindRepoRoot()
