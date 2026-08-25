@@ -19,6 +19,8 @@ OSMF tier. A single fee covers all of [Devlooped packages](https://www.nuget.org
 
 <!-- https://github.com/devlooped/.github/raw/main/osmf.md -->
 <!-- #content -->
+Packs the [Azure CLI](https://github.com/Azure/azure-cli) for install-less, portable execution via `ndnx`/`dnx`.
+
 ## Usage
 
 ```bash
