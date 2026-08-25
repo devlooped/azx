@@ -22,9 +22,12 @@ OSMF tier. A single fee covers all of [Devlooped packages](https://www.nuget.org
 ## Usage
 
 ```bash
-ndnx azx -- account list
-dnx  azx -- account list
-azx --version   # azx version, then az --version
+ndnx azx account list
+dnx  azx account list
+
+# installed version:
+dotnet tool install -g azx  #once
+azx --version               # azx version, then az --version
 ```
 
 `PackageReference` `Azure.Cli` and pack/publish for your RID to copy `az/` next to the app. `Azure.Cli.ResolvePath()` is the Payload `az` executable.
