@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="136.56 126 1164.32 1164.32" role="img" aria-label="azx">
+  <defs>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="2" dy="18" stdDeviation="12" flood-color="#000510" flood-opacity="0.48"/>
+    </filter>
+  </defs>
+  <rect x="136.56" y="126" width="1164.32" height="1164.32" fill="#002F6F"/>
+  <g filter="url(#drop)">
+    <!-- Azure A, left blade -->
+    <polygon fill="#0097FE" points="753,187 498.67,717 339.28,717 536.34,367.58"/>
+    <!-- Azure A, right triangle + bar -->
+    <polygon fill="#0097FE" points="790.37,234.07 1098.16,779 521.84,779 876.92,717.18 693.47,491.64"/>
+    <!-- CLI prompt chevron -->
+    <path d="M433.06 875.2 L647.79 1029.74 L431.79 1199.74" fill="none" stroke="#FFFFFF" stroke-width="59.15" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- CLI prompt underscore -->
+    <rect x="701" y="1157" width="302" height="61" fill="#FFFFFF"/>
+  </g>
+</svg>

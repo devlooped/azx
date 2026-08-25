@@ -1,4 +1,5 @@
-# azx
+![Icon](assets/icon.png) azx
+============
 
 [![Version](https://img.shields.io/nuget/vpre/azx.svg?color=royalblue)](https://www.nuget.org/packages/azx)
 [![Downloads](https://img.shields.io/nuget/dt/azx.svg?color=darkmagenta)](https://www.nuget.org/packages/azx)
