@@ -187,7 +187,7 @@ switch ($Rid) {
     'win-x64' {
         $zip = Join-Path $cache "azure-cli-$AzureCliVersion-x64.zip"
         Save-Url "https://azcliprod.blob.core.windows.net/zip/azure-cli-$AzureCliVersion-x64.zip" $zip
-        tar -xf $zip -C $OutDir
+        Expand-Zip $zip $OutDir
         $azCmd = Join-Path $OutDir 'bin/az.cmd'
         if (-not (Test-Path $azCmd)) {
             $nested = Get-ChildItem $OutDir -Directory | Select-Object -First 1

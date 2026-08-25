@@ -31,3 +31,7 @@ _Avoid_: wrap, shell out and wait as the product metaphor (implementation may st
 **Upstream**:
 The Azure CLI GitHub release we track. Tag `azure-cli-{version}`; that `{version}` is our nupkg version.
 _Avoid_: submodule, clone, PyPI as the version source
+
+**Preview**:
+A separate GitHub release tagged `{upstream}-preview` when `vars.RELEASE` is not `STABLE`. Nupkgs use that tag. A later STABLE release is `{upstream}`, not an edit of the preview.
+_Avoid_: flipping the prerelease bit on a published release, `{version}-preview-preview`

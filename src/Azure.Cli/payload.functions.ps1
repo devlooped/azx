@@ -29,6 +29,12 @@ function Expand-TarGz([string] $Archive, [string] $Dest) {
     }
 }
 
+function Expand-Zip([string] $Archive, [string] $Dest) {
+    New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+    # GNU tar cannot unpack zip; Expand-Archive is the cross-platform zip path (win-x64 on ubuntu).
+    Expand-Archive -LiteralPath $Archive -DestinationPath $Dest -Force
+}
+
 function Get-SourcesRoot {
     param(
         [Parameter(Mandatory, Position = 0)]

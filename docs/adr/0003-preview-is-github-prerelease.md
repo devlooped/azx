@@ -1,3 +1,3 @@
-# Preview is the GitHub prerelease bit
+# Preview is its own GitHub release
 
-The GitHub tag is always the naked CLI version (`2.89.1`). `vars.RELEASE=PRERELEASE` (default) creates a draft `--prerelease`; the org webhook publishes it; nupkgs are `2.89.1-preview`. Flipping to `STABLE` edits that release (`--prerelease=false`) and publishes `2.89.1`. Same tag, two nupkg versions; previews stay on nuget.org.
+The pin is the naked CLI version (`2.89.1`). When `vars.RELEASE` is not `STABLE` (default `PRERELEASE`), the draft is tagged and titled `2.89.1-preview` (`--prerelease`). The org webhook publishes it; nupkgs use that tag. Flipping to `STABLE` creates a new draft `2.89.1` and does not edit the preview. `publish.yml` appends `-preview` only for a naked prerelease tag, so a `{version}-preview` tag is not doubled. Previews stay on nuget.org.

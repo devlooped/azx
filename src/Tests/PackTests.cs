@@ -181,7 +181,65 @@ public class PackTests
         Assert.DoesNotContain("archive/refs/tags/azure-cli-$Version.zip", functions);
         Assert.DoesNotContain("azure-cli-$Version-src.zip", functions);
         Assert.Contains("Expand-TarGz", functions);
+        Assert.Contains("Expand-Zip", functions);
+        Assert.Contains("Expand-Archive", functions);
         Assert.DoesNotContain("tar -xf $zip", functions);
+
+        var payload = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "payload.ps1"));
+        Assert.Contains("Expand-Zip $zip $OutDir", payload);
+        Assert.DoesNotContain("tar -xf $zip", payload);
+    }
+
+    [Fact]
+    public void ExpandZip_extracts_zip_without_gnu_tar()
+    {
+        var repo = FindRepoRoot();
+        var functions = Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1");
+        var scratch = Path.Combine(Path.GetTempPath(), "azx-expand-zip-" + Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(scratch);
+        try
+        {
+            var zip = Path.Combine(scratch, "payload.zip");
+            var dest = Path.Combine(scratch, "out");
+            using (var archive = ZipFile.Open(zip, ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("bin/az.cmd");
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write("@echo off");
+            }
+
+            var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+            {
+                WorkingDirectory = repo,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-Command");
+            var functionsLit = functions.Replace("'", "''", StringComparison.Ordinal);
+            var zipLit = zip.Replace("'", "''", StringComparison.Ordinal);
+            var destLit = dest.Replace("'", "''", StringComparison.Ordinal);
+            start.ArgumentList.Add($$"""
+                $ErrorActionPreference = 'Stop'
+                Set-StrictMode -Version Latest
+                . '{{functionsLit}}'
+                Expand-Zip '{{zipLit}}' '{{destLit}}'
+                """);
+
+            using var process = System.Diagnostics.Process.Start(start)
+                ?? throw new InvalidOperationException("Failed to start pwsh.");
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            Assert.True(process.WaitForExit(60_000), stdout + Environment.NewLine + stderr);
+            Assert.True(process.ExitCode == 0, stdout + Environment.NewLine + stderr);
+            Assert.True(File.Exists(Path.Combine(dest, "bin", "az.cmd")), dest + Environment.NewLine + stdout + stderr);
+        }
+        finally
+        {
+            if (Directory.Exists(scratch))
+                Directory.Delete(scratch, recursive: true);
+        }
     }
 
     [Fact]

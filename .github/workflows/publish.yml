@@ -1,4 +1,4 @@
-# Full RID matrix on GitHub release. nuget.org: -preview on prereleased, stable on released.
+# Full RID matrix on GitHub release. nuget.org version is the tag; append -preview only if the tag is a naked prerelease.
 
 name: publish
 on:
@@ -9,7 +9,7 @@ env:
   DOTNET_NOLOGO: true
   Configuration: Release
   GeneratePackageOnBuild: false
-  Version: ${{ github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name }}
+  Version: ${{ endsWith(github.event.release.tag_name, '-preview') && github.event.release.tag_name || (github.event.release.prerelease && format('{0}-preview', github.event.release.tag_name) || github.event.release.tag_name) }}
   VersionLabel: refs/tags/${{ github.event.release.tag_name }}
   GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
   MSBUILDTERMINALLOGGER: auto

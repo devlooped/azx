@@ -1,6 +1,6 @@
 # Creates a draft GitHub release when azure-cli.version changes.
-# vars.RELEASE=PRERELEASE (default) → draft --prerelease (nupkgs 2.89.1-preview).
-# vars.RELEASE=STABLE and a prerelease already exists → uncheck prerelease (nupkgs 2.89.1).
+# vars.RELEASE=PRERELEASE (default) → tag/title {version}-preview, draft --prerelease.
+# vars.RELEASE=STABLE → tag/title {version}, draft (not a prerelease). Never edits an existing preview.
 # Org webhook publishes drafts.
 name: release
 on:
@@ -33,6 +33,11 @@ jobs:
           set -euo pipefail
           VERSION=$(tr -d '[:space:]' < azure-cli.version)
           CHANNEL="${CHANNEL:-PRERELEASE}"
+          if [ "$CHANNEL" = STABLE ]; then
+            TAG="$VERSION"
+          else
+            TAG="$VERSION-preview"
+          fi
           BODY=$(gh release view "azure-cli-$VERSION" --repo Azure/azure-cli --json body --jq '.body // ""')
           {
             printf '%s\n' "$BODY"
@@ -41,17 +46,10 @@ jobs:
             echo "<!-- X -->"
           } > release-notes.md
 
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            IS_PRE=$(gh release view "$VERSION" --json isPrerelease --jq '.isPrerelease')
-            if [ "$CHANNEL" = STABLE ] && [ "$IS_PRE" = true ]; then
-              gh release edit "$VERSION" --prerelease=false
-            else
-              echo "Release $VERSION already exists (prerelease=$IS_PRE channel=$CHANNEL)"
-            fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          elif [ "$CHANNEL" = STABLE ]; then
+            gh release create "$TAG" --draft --title "$TAG" --notes-file release-notes.md
           else
-            if [ "$CHANNEL" = STABLE ]; then
-              gh release create "$VERSION" --draft --title "$VERSION" --notes-file release-notes.md
-            else
-              gh release create "$VERSION" --draft --prerelease --title "$VERSION" --notes-file release-notes.md
-            fi
+            gh release create "$TAG" --draft --prerelease --title "$TAG" --notes-file release-notes.md
           fi
