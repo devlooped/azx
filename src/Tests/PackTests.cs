@@ -184,10 +184,13 @@ public class PackTests
         Assert.Contains("Expand-Zip", functions);
         Assert.Contains("Expand-Archive", functions);
         Assert.DoesNotContain("tar -xf $zip", functions);
+        Assert.Contains("githubusercontent", functions);
+        Assert.DoesNotContain("Invoke-WebRequest -Uri $Url -OutFile $Dest -Headers (Get-GitHubHeaders)", functions);
 
         var payload = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "payload.ps1"));
         Assert.Contains("Expand-Zip $zip $OutDir", payload);
         Assert.DoesNotContain("tar -xf $zip", payload);
+        Assert.Contains("Remove-UnusedPythonShare", payload);
     }
 
     [Fact]
@@ -239,6 +242,51 @@ public class PackTests
         {
             if (Directory.Exists(scratch))
                 Directory.Delete(scratch, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RemoveUnusedPythonShare_deletes_terminfo_tree()
+    {
+        var repo = FindRepoRoot();
+        var functions = Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1");
+        var root = Path.Combine(Path.GetTempPath(), "azx-share-" + Guid.NewGuid().ToString("n"));
+        var share = Path.Combine(root, "python", "share", "terminfo", "n", "ncr260vt300wpp");
+        Directory.CreateDirectory(Path.GetDirectoryName(share)!);
+        File.WriteAllText(share, "x");
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo("pwsh")
+            {
+                WorkingDirectory = repo,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-Command");
+            var functionsLit = functions.Replace("'", "''", StringComparison.Ordinal);
+            var rootLit = root.Replace("'", "''", StringComparison.Ordinal);
+            start.ArgumentList.Add($$"""
+                $ErrorActionPreference = 'Stop'
+                Set-StrictMode -Version Latest
+                . '{{functionsLit}}'
+                Remove-UnusedPythonShare '{{rootLit}}'
+                """);
+
+            using var process = System.Diagnostics.Process.Start(start)
+                ?? throw new InvalidOperationException("Failed to start pwsh.");
+            var stdout = process.StandardOutput.ReadToEnd();
+            var stderr = process.StandardError.ReadToEnd();
+            Assert.True(process.WaitForExit(60_000), stdout + Environment.NewLine + stderr);
+            Assert.True(process.ExitCode == 0, stdout + Environment.NewLine + stderr);
+            Assert.False(Directory.Exists(Path.Combine(root, "python", "share")));
+            Assert.True(Directory.Exists(Path.Combine(root, "python")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
         }
     }
 

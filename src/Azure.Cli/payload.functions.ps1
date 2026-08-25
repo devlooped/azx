@@ -18,7 +18,12 @@ function Save-Url([string] $Url, [string] $Dest) {
         return
     }
     Write-Host "Downloading $Url"
-    Invoke-WebRequest -Uri $Url -OutFile $Dest -Headers (Get-GitHubHeaders) -MaximumRedirection 5
+    $params = @{ Uri = $Url; OutFile = $Dest; MaximumRedirection = 5 }
+    # Azure Blob rejects a GitHub Bearer token (AuthenticationFailed). Only GitHub needs it.
+    if ($Url -match '://(api\.)?github\.com/' -or $Url -match '://.*\.githubusercontent\.com/') {
+        $params['Headers'] = Get-GitHubHeaders
+    }
+    Invoke-WebRequest @params
 }
 
 function Expand-TarGz([string] $Archive, [string] $Dest) {
@@ -75,6 +80,14 @@ function Get-CaseCollidingDuplicates([string[]] $RelativePaths) {
         }
     }
     return @($dupes)
+}
+
+function Remove-UnusedPythonShare([string] $Root) {
+    $share = Join-Path $Root 'python/share'
+    if (Test-Path -LiteralPath $share) {
+        Write-Host "Removing unused $share"
+        Remove-Item -LiteralPath $share -Recurse -Force
+    }
 }
 
 function Repair-CaseCollisions([string] $Root) {
