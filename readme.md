@@ -32,7 +32,7 @@ dotnet tool install -g azx  #once
 azx --version               # azx version, then az --version
 ```
 
-`PackageReference` `Azure.Cli` and pack/publish for your RID to copy `az/` next to the app. `Azure.Cli.ResolvePath()` is the Payload `az` executable.
+`PackageReference` `azx.cli` and pack/publish for your RID to copy `az/` next to the app. `Azure.Cli.ResolvePath()` is the Payload `az` executable.
 
 <!-- #content -->
 ---

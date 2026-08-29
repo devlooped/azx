@@ -70,9 +70,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $script = Join-Path $pwd 'src/Azure.Cli/unix-exec.ps1'
-          $azure = Get-ChildItem bin -Filter "Azure.Cli.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          $azure = Get-ChildItem bin -Filter "azx.cli.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
           $azx = Get-ChildItem bin -Filter "azx.${{ matrix.rid }}.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
-          if (-not $azure) { throw "Azure.Cli.${{ matrix.rid }} nupkg not found" }
+          if (-not $azure) { throw "azx.cli.${{ matrix.rid }} nupkg not found" }
           if (-not $azx) { throw "azx.${{ matrix.rid }} nupkg not found" }
           foreach ($pkg in @($azure, $azx)) {
             & pwsh -NoProfile -File $script -Nupkg $pkg.FullName -Assert
@@ -84,9 +84,9 @@ jobs:
         with:
           name: package-${{ matrix.rid }}
           # Only RID nupkgs. Pointer nupkgs are produced on every OS; merging them
-          # into one Azure.Cli.{version}.nupkg corrupts the zip (NUGET 400 / sleet EOCD).
+          # into one azx.cli.{version}.nupkg corrupts the zip (NUGET 400 / sleet EOCD).
           path: |
-            bin/Azure.Cli.${{ matrix.rid }}.*.nupkg
+            bin/azx.cli.${{ matrix.rid }}.*.nupkg
             bin/azx.${{ matrix.rid }}.*.nupkg
           retention-days: 30
           if-no-files-found: error
@@ -97,7 +97,7 @@ jobs:
         with:
           name: package-pointer
           path: |
-            bin/Azure.Cli.${{ env.Version }}.nupkg
+            bin/azx.cli.${{ env.Version }}.nupkg
             bin/azx.${{ env.Version }}.nupkg
           retention-days: 30
           if-no-files-found: error
@@ -161,12 +161,12 @@ jobs:
           }
           $names = Get-ChildItem -File -Filter *.nupkg | ForEach-Object Name
           foreach ($need in @(
-            "Azure.Cli.$env:Version.nupkg",
-            "Azure.Cli.win-x64.$env:Version.nupkg",
-            "Azure.Cli.linux-x64.$env:Version.nupkg",
-            "Azure.Cli.linux-arm64.$env:Version.nupkg",
-            "Azure.Cli.osx-x64.$env:Version.nupkg",
-            "Azure.Cli.osx-arm64.$env:Version.nupkg",
+            "azx.cli.$env:Version.nupkg",
+            "azx.cli.win-x64.$env:Version.nupkg",
+            "azx.cli.linux-x64.$env:Version.nupkg",
+            "azx.cli.linux-arm64.$env:Version.nupkg",
+            "azx.cli.osx-x64.$env:Version.nupkg",
+            "azx.cli.osx-arm64.$env:Version.nupkg",
             "azx.$env:Version.nupkg",
             "azx.win-x64.$env:Version.nupkg",
             "azx.linux-x64.$env:Version.nupkg",

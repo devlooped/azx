@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <PackageId>Azure.Cli</PackageId>
+    <PackageId>azx.cli</PackageId>
     <RootNamespace>Azure</RootNamespace>
     <AssemblyName>Azure.Cli</AssemblyName>
-    <Description>Azure CLI payload for .NET: PackageReference Azure.Cli and publish/pack for your RID to get az/ plus Azure.Cli.ResolvePath.</Description>
+    <Description>Azure CLI payload for .NET: PackageReference azx.cli and publish/pack for your RID to get az/ plus Azure.Cli.ResolvePath.</Description>
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
@@ -30,10 +30,10 @@
   </ItemGroup>
 
   <Import Project="Azure.Cli.pack.targets" />
-  <Import Project="buildTransitive\Azure.Cli.targets" Condition="'$(AzureCliTargetsImported)' != 'true'" />
+  <Import Project="buildTransitive\azx.cli.targets" Condition="'$(AzureCliTargetsImported)' != 'true'" />
 
   <ItemGroup>
-    <None Include="buildTransitive\Azure.Cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="buildTransitive\Azure.Cli.targets" />
-    <None Include="build\Azure.Cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="build\Azure.Cli.targets" />
+    <None Include="buildTransitive\azx.cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="buildTransitive\$(PackageId).targets" />
+    <None Include="build\azx.cli.targets" Pack="$(IncludeBuildOutput)" PackagePath="build\$(PackageId).targets" />
   </ItemGroup>
 </Project>

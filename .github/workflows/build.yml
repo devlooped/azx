@@ -74,9 +74,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $script = Join-Path $pwd 'src/Azure.Cli/unix-exec.ps1'
-          $azure = Get-ChildItem bin -Filter "Azure.Cli.linux-x64.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
+          $azure = Get-ChildItem bin -Filter "azx.cli.linux-x64.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
           $azx = Get-ChildItem bin -Filter "azx.linux-x64.*.nupkg" | Where-Object Name -notlike '*.symbols.*' | Select-Object -First 1
-          if (-not $azure) { throw "Azure.Cli.linux-x64 nupkg not found" }
+          if (-not $azure) { throw "azx.cli.linux-x64 nupkg not found" }
           if (-not $azx) { throw "azx.linux-x64 nupkg not found" }
           foreach ($pkg in @($azure, $azx)) {
             & pwsh -NoProfile -File $script -Nupkg $pkg.FullName -Assert

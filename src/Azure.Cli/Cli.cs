@@ -17,7 +17,7 @@ public static class Cli
         if (!File.Exists(path))
         {
             throw new FileNotFoundException(
-                $"Azure CLI payload was not found at '{path}'. PackageReference Azure.Cli and publish/pack for your RID.",
+                $"Azure CLI payload was not found at '{path}'. PackageReference azx.cli and publish/pack for your RID.",
                 path);
         }
 

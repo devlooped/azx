@@ -14,7 +14,7 @@
 
   <PropertyGroup Condition="'$(AzureCliPayloadRoot)' == ''">
     <_AzureCliVersion>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..'))))</_AzureCliVersion>
-    <_AzureCliPackageFolder>$([System.String]::Copy('azure.cli.$(_AzureCliRid)').ToLowerInvariant())</_AzureCliPackageFolder>
+    <_AzureCliPackageFolder>$([System.String]::Copy('$(MSBuildThisFileName).$(_AzureCliRid)').ToLowerInvariant())</_AzureCliPackageFolder>
     <AzureCliPayloadRoot>$(NuGetPackageRoot)$(_AzureCliPackageFolder)\$(_AzureCliVersion)\az</AzureCliPayloadRoot>
   </PropertyGroup>
 
