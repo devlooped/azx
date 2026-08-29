@@ -21,7 +21,7 @@ The managed type whose `ResolvePath` returns the Payload's `az` executable (`az.
 _Avoid_: Az, Azx, AzureCli, WhatsBoxHost, ResolveBinaryPath
 
 **azx**:
-The passthrough .NET tool that execs the Payload `az` with the same arguments. Primary human vehicle via `dnx`/`ndnx azx`.
+The passthrough .NET tool that execs the Payload `az` with the same arguments. Primary human vehicle via `dnx`/`ndx azx`.
 _Avoid_: Azure CLI, az, wrapper with its own Azure verbs
 
 **Execute**:
