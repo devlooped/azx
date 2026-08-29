@@ -281,12 +281,38 @@ public class PackTests
         Assert.DoesNotContain("tar -xf $zip", functions);
         Assert.Contains("githubusercontent", functions);
         Assert.DoesNotContain("Invoke-WebRequest -Uri $Url -OutFile $Dest -Headers (Get-GitHubHeaders)", functions);
+        Assert.Contains("function Get-GitHubAuthTokens", functions);
+        Assert.Contains("function Invoke-GitHubRestMethod", functions);
+        Assert.Contains("rate limit", functions);
 
         var payload = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "payload.ps1"));
         Assert.Contains("Expand-Zip $zip $OutDir", payload);
         Assert.DoesNotContain("tar -xf $zip", payload);
         Assert.Contains("Remove-UnusedPythonShare", payload);
         Assert.Contains("Install-CliFromPyPI", payload);
+        Assert.Contains("Invoke-GitHubRestMethod", payload);
+        Assert.Contains("releases.atom", payload);
+    }
+
+    [Fact]
+    public void GitHubHeaders_prefer_actions_token_when_github_actions()
+    {
+        var repo = FindRepoRoot();
+        var functions = Path.Combine(repo, "src", "Azure.Cli", "payload.functions.ps1");
+        var functionsLit = functions.Replace("'", "''", StringComparison.Ordinal);
+        RunPwsh(repo, $$"""
+            $ErrorActionPreference = 'Stop'
+            Set-StrictMode -Version Latest
+            . '{{functionsLit}}'
+            $env:GITHUB_ACTIONS = 'true'
+            $env:GITHUB_TOKEN = 'actions-token'
+            $env:GH_TOKEN = 'pat-token'
+            $h = Get-GitHubHeaders
+            if ($h['Authorization'] -ne 'Bearer actions-token') { throw "Actions: $($h['Authorization'])" }
+            $env:GITHUB_ACTIONS = 'false'
+            $h = Get-GitHubHeaders
+            if ($h['Authorization'] -ne 'Bearer pat-token') { throw "Local: $($h['Authorization'])" }
+            """);
     }
 
     [Fact]

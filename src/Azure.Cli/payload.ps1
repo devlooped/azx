@@ -60,12 +60,42 @@ function Get-PbsTriple([string] $PayloadRid) {
 }
 
 function Get-PbsAsset([string] $PythonVersion, [string] $Triple) {
-    $releases = Invoke-RestMethod -Uri 'https://api.github.com/repos/astral-sh/python-build-standalone/releases?per_page=15' -Headers (Get-GitHubHeaders)
     $pattern = "^cpython-$([regex]::Escape($PythonVersion))\+.*-$([regex]::Escape($Triple))-install_only_stripped\.tar\.gz$"
-    foreach ($release in $releases) {
-        $asset = @($release.assets | Where-Object { $_.name -match $pattern }) | Select-Object -First 1
-        if ($asset) {
-            return $asset
+    try {
+        $releases = Invoke-GitHubRestMethod 'https://api.github.com/repos/astral-sh/python-build-standalone/releases?per_page=15'
+        foreach ($release in @($releases)) {
+            if (-not $release.assets) { continue }
+            $asset = @($release.assets | Where-Object { $_.name -match $pattern }) | Select-Object -First 1
+            if ($asset) {
+                return $asset
+            }
+        }
+        Write-Host 'No PBS asset in GitHub API releases; trying releases.atom'
+    }
+    catch {
+        Write-Host "PBS GitHub API lookup failed: $_"
+    }
+
+    # github.com HTML/atom does not consume REST API quota.
+    $atomHeaders = @{ 'User-Agent' = 'azx-payload' }
+    $atom = Invoke-WebRequest -Uri 'https://github.com/astral-sh/python-build-standalone/releases.atom' -Headers $atomHeaders
+    $tags = [regex]::Matches($atom.Content, 'python-build-standalone/releases/tag/([^<"\s]+)') |
+        ForEach-Object { [System.Uri]::UnescapeDataString($_.Groups[1].Value) } |
+        Select-Object -Unique
+    foreach ($tag in $tags) {
+        $name = "cpython-$PythonVersion+$tag-$Triple-install_only_stripped.tar.gz"
+        $url = "https://github.com/astral-sh/python-build-standalone/releases/download/$tag/$name"
+        try {
+            $head = Invoke-WebRequest -Uri $url -Method Head -SkipHttpErrorCheck -Headers $atomHeaders
+            if ($head.StatusCode -ge 200 -and $head.StatusCode -lt 400) {
+                return [pscustomobject]@{
+                    name                 = $name
+                    browser_download_url = $url
+                }
+            }
+        }
+        catch {
+            # Tag does not contain this CPython build, or HEAD was not supported.
         }
     }
     throw "No python-build-standalone install_only_stripped asset for CPython $PythonVersion on $Triple."

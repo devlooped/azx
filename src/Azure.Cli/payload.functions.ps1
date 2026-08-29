@@ -1,15 +1,62 @@
 #Requires -Version 7
 # Download/extract helpers for payload.ps1. Get-SourcesRoot is the sources unpack unit.
 
+function Get-GitHubAuthTokens {
+    # In GitHub Actions prefer GITHUB_TOKEN: per-repo quota, unlike a shared GH_TOKEN PAT.
+    $tokens = [System.Collections.Generic.List[string]]::new()
+    $order = if ($env:GITHUB_ACTIONS -eq 'true') {
+        @($env:GITHUB_TOKEN, $env:GH_TOKEN)
+    }
+    else {
+        @($env:GH_TOKEN, $env:GITHUB_TOKEN)
+    }
+    foreach ($t in $order) {
+        if (-not [string]::IsNullOrWhiteSpace($t) -and -not $tokens.Contains($t)) {
+            $tokens.Add($t)
+        }
+    }
+    return $tokens
+}
+
 function Get-GitHubHeaders {
     $headers = @{ 'User-Agent' = 'azx-payload' }
-    if ($env:GH_TOKEN) {
-        $headers['Authorization'] = "Bearer $($env:GH_TOKEN)"
-    }
-    elseif ($env:GITHUB_TOKEN) {
-        $headers['Authorization'] = "Bearer $($env:GITHUB_TOKEN)"
+    $token = @(Get-GitHubAuthTokens) | Select-Object -First 1
+    if ($token) {
+        $headers['Authorization'] = "Bearer $token"
     }
     return $headers
+}
+
+function Invoke-GitHubRestMethod([string] $Uri) {
+    $attempts = [System.Collections.Generic.List[string]]::new()
+    foreach ($t in @(Get-GitHubAuthTokens)) {
+        $attempts.Add($t)
+    }
+    $attempts.Add('') # unauthenticated last; public REST still has an IP quota
+
+    $errors = [System.Collections.Generic.List[string]]::new()
+    foreach ($token in $attempts) {
+        $headers = @{ 'User-Agent' = 'azx-payload' }
+        if ($token) {
+            $headers['Authorization'] = "Bearer $token"
+        }
+        try {
+            return Invoke-RestMethod -Uri $Uri -Headers $headers
+        }
+        catch {
+            $status = $null
+            try { $status = [int]$_.Exception.Response.StatusCode } catch { }
+            $msg = [string]$_
+            $errors.Add($msg)
+            $retry = ($status -in 401, 403, 429) -or ($msg -match 'rate limit') -or ($msg -match 'Bad credentials')
+            if ($retry) {
+                Write-Host "GitHub API rejected request$(if ($null -ne $status) { " ($status)" }); trying next credentials"
+                continue
+            }
+            throw
+        }
+    }
+    throw "GitHub API failed for $Uri. $($errors -join ' | ')"
 }
 
 function Save-Url([string] $Url, [string] $Dest) {
