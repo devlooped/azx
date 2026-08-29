@@ -5,7 +5,7 @@
     <PackageId>azx</PackageId>
     <RootNamespace>azx</RootNamespace>
     <AssemblyName>azx</AssemblyName>
-    <Description>Execute the bundled Azure CLI. ndnx azx -- account list.</Description>
+    <Description>Execute the bundled Azure CLI. ndx azx -- account list.</Description>
     <PackAsTool>true</PackAsTool>
     <PublishAot>true</PublishAot>
     <ToolCommandName>azx</ToolCommandName>

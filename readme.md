@@ -19,13 +19,13 @@ OSMF tier. A single fee covers all of [Devlooped packages](https://www.nuget.org
 
 <!-- https://github.com/devlooped/.github/raw/main/osmf.md -->
 <!-- #content -->
-Packs the [Azure CLI](https://github.com/Azure/azure-cli) for install-less, portable execution via `ndnx`/`dnx`.
+Packs the [Azure CLI](https://github.com/Azure/azure-cli) for install-less, portable execution via `ndx`/`dnx`.
 
 ## Usage
 
 ```bash
-ndnx azx account list
-dnx  azx account list
+ndx azx account list
+dnx azx account list
 
 # installed version:
 dotnet tool install -g azx  #once
