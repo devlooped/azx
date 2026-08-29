@@ -1,0 +1,3 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)..\buildTransitive\$(MSBuildThisFileName).targets" Condition="'$(AzureCliTargetsImported)' != 'true'" />
+</Project>

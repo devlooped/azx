@@ -23,12 +23,15 @@ public class PackTests
         Assert.Contains("src/azx/azx.csproj", slnx);
 
         var azureCli = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "Azure.Cli.csproj"));
-        Assert.Contains("<PackageId>Azure.Cli</PackageId>", azureCli);
+        Assert.Contains("<PackageId>azx.cli</PackageId>", azureCli);
+        Assert.Contains("<AssemblyName>Azure.Cli</AssemblyName>", azureCli);
+        Assert.Contains("<RootNamespace>Azure</RootNamespace>", azureCli);
         Assert.Contains("<RuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>", azureCli);
         Assert.DoesNotContain("NuGetizer", azureCli, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("<PackAsTool", azureCli);
         Assert.Contains("Azure.Cli.pack.targets", azureCli);
-        Assert.Contains("buildTransitive\\Azure.Cli.targets", azureCli.Replace('/', '\\'));
+        Assert.Contains("buildTransitive\\azx.cli.targets", azureCli.Replace('/', '\\'));
+        Assert.Contains("buildTransitive\\$(PackageId).targets", azureCli.Replace('/', '\\'));
         Assert.Contains("Readme", azureCli);
         Assert.DoesNotContain("win-arm64", azureCli);
 
@@ -61,7 +64,7 @@ public class PackTests
         Assert.Contains("$(AzureCliPackageId).$(RuntimeIdentifier)", packTargets);
         Assert.DoesNotContain("runtimes/$(RuntimeIdentifier)/native/", packTargets);
 
-        var consumer = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "buildTransitive", "Azure.Cli.targets"));
+        var consumer = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "buildTransitive", "azx.cli.targets"));
         Assert.Contains("IncludeAzureCliPayload", consumer);
         Assert.Contains(@"TargetPath>az\", consumer.Replace('/', '\\'));
         Assert.DoesNotContain("runtimes/$(RuntimeIdentifier)/native/", consumer);
@@ -72,13 +75,15 @@ public class PackTests
         Assert.Contains("<PublishAot>true</PublishAot>", azx);
         Assert.Contains("<ToolCommandName>azx</ToolCommandName>", azx);
         Assert.Contains("<ToolPackageRuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>", azx);
-        Assert.Contains("""<PackageReference Include="Azure.Cli" Version="$(Version)" />""", azx);
+        Assert.Contains("""<PackageReference Include="azx.cli" Version="$(Version)" />""", azx);
         Assert.DoesNotContain("NuGetizer", azx, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Readme", azx);
         var nuget = File.ReadAllText(Path.Combine(repo, "src", "azx", "nuget.config"));
         Assert.Contains("key=\"local\"", nuget);
         Assert.Contains("../../bin", nuget);
-        Assert.Contains("Azure.Cli", nuget);
+        Assert.Contains("pattern=\"azx.cli\"", nuget);
+        Assert.Contains("pattern=\"azx.cli.*\"", nuget);
+        Assert.DoesNotContain("Azure.Cli", nuget);
         Assert.DoesNotContain("win-arm64", azx);
         Assert.DoesNotContain("azx.$(RuntimeIdentifier)", azx);
 
@@ -131,8 +136,8 @@ public class PackTests
         {
             var range = runtimes
                 .GetProperty(rid)
-                .GetProperty("Azure.Cli")
-                .GetProperty("Azure.Cli." + rid)
+                .GetProperty("azx.cli")
+                .GetProperty("azx.cli." + rid)
                 .GetString();
             Assert.False(string.IsNullOrWhiteSpace(range));
             Assert.StartsWith("[", range);
@@ -149,7 +154,7 @@ public class PackTests
         if (!Directory.Exists(bin))
             return;
 
-        var nupkgs = Directory.GetFiles(bin, "Azure.Cli*.nupkg")
+        var nupkgs = Directory.GetFiles(bin, "azx.cli*.nupkg")
             .Where(f => !f.Contains(".symbols.", StringComparison.OrdinalIgnoreCase))
             .ToArray();
         if (nupkgs.Length == 0)
@@ -162,7 +167,7 @@ public class PackTests
             var names = ZipNames(pointer);
             Assert.Contains(names, n => n == "runtime.json" || n == "runtime.json/");
             Assert.Contains(names, n => n.Replace('\\', '/').StartsWith("lib/", StringComparison.Ordinal));
-            Assert.Contains(names, n => n.Replace('\\', '/').Contains("buildTransitive/Azure.Cli.targets", StringComparison.Ordinal));
+            Assert.Contains(names, n => n.Replace('\\', '/').Contains("buildTransitive/azx.cli.targets", StringComparison.Ordinal));
             Assert.DoesNotContain(names, n => n.Replace('\\', '/').StartsWith("az/", StringComparison.Ordinal));
         }
 

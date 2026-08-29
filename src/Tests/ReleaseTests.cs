@@ -50,7 +50,9 @@ public class ReleaseTests
         Assert.DoesNotContain("Expand-Archive", publish);
         Assert.DoesNotContain("tar -xf $nupkg", publish);
         Assert.Contains("package-pointer", publish);
-        Assert.Contains("bin/Azure.Cli.${{ matrix.rid }}.*.nupkg", publish);
+        Assert.Contains("bin/azx.cli.${{ matrix.rid }}.*.nupkg", publish);
+        Assert.Contains("bin/azx.cli.${{ env.Version }}.nupkg", publish);
+        Assert.Contains("azx.cli.$env:Version.nupkg", publish);
     }
 
     static string FindRepoRoot()

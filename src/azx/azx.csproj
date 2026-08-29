@@ -19,12 +19,12 @@
 
   <!--
     Pointer (`dotnet pack`): DotnetTool v2 settings listing azx.{rid}.
-    RID (`dotnet pack -r`): AOT tool plus the Azure.Cli Payload.
+    RID (`dotnet pack -r`): AOT tool plus the azx.cli Payload.
     Do not suffix PackageId here; the SDK appends $(RuntimeIdentifier) for DotnetToolRidPackage.
   -->
 
   <ItemGroup>
-    <PackageReference Include="Azure.Cli" Version="$(Version)" />
+    <PackageReference Include="azx.cli" Version="$(Version)" />
     <PackageReference Include="Readme" Version="1.2.1" PrivateAssets="all" />
   </ItemGroup>
 </Project>
