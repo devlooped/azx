@@ -1,12 +1,23 @@
 # Changelog
 
+## [2.89.1](https://github.com/devlooped/azx/tree/2.89.1) (2026-08-29)
+
+[Full Changelog](https://github.com/devlooped/azx/compare/2.89.1-preview.2...2.89.1)
+
+:sparkles: Implemented enhancements:
+
+- Rename Azure.Cli package id to azx.cli [\#7](https://github.com/devlooped/azx/pull/7) (@kzu)
+- Add project icon and show it on the README [\#5](https://github.com/devlooped/azx/pull/5) (@kzu)
+- Rename managed API to Azure.Cli.ResolvePath [\#4](https://github.com/devlooped/azx/pull/4) (@kzu)
+
+:twisted_rightwards_arrows: Merged:
+
+- Suppress payload pack NU\* analysis noise [\#8](https://github.com/devlooped/azx/pull/8) (@kzu)
+- Skip SponsorLink announcements and sponsor injection on releases [\#6](https://github.com/devlooped/azx/pull/6) (@kzu)
+
 ## [2.89.1-preview.2](https://github.com/devlooped/azx/tree/2.89.1-preview.2) (2026-08-25)
 
-[Full Changelog](https://github.com/devlooped/azx/compare/2.89.1...2.89.1-preview.2)
-
-## [2.89.1](https://github.com/devlooped/azx/tree/2.89.1) (2026-08-25)
-
-[Full Changelog](https://github.com/devlooped/azx/compare/2.89.1-preview.1...2.89.1)
+[Full Changelog](https://github.com/devlooped/azx/compare/2.89.1-preview.1...2.89.1-preview.2)
 
 ## [2.89.1-preview.1](https://github.com/devlooped/azx/tree/2.89.1-preview.1) (2026-08-25)
 
