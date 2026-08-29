@@ -64,6 +64,10 @@ public class PackTests
         Assert.Contains("$(AzureCliPackageId).$(RuntimeIdentifier)", packTargets);
         Assert.DoesNotContain("runtimes/$(RuntimeIdentifier)/native/", packTargets);
 
+        var directoryProps = File.ReadAllText(Path.Combine(repo, "src", "Directory.props"));
+        Assert.Contains("NU5100;NU5110;NU5111;NU5118;NU5119;NU5123;NU5128;NU5129", directoryProps);
+        Assert.DoesNotContain("<NoWarn>", packTargets);
+
         var consumer = File.ReadAllText(Path.Combine(repo, "src", "Azure.Cli", "buildTransitive", "azx.cli.targets"));
         Assert.Contains("IncludeAzureCliPayload", consumer);
         Assert.Contains(@"TargetPath>az\", consumer.Replace('/', '\\'));
@@ -77,6 +81,7 @@ public class PackTests
         Assert.Contains("<ToolPackageRuntimeIdentifiers>win-x64;linux-x64;linux-arm64;osx-x64;osx-arm64</ToolPackageRuntimeIdentifiers>", azx);
         Assert.Contains("""<PackageReference Include="azx.cli" Version="$(Version)" />""", azx);
         Assert.DoesNotContain("NuGetizer", azx, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<NoWarn>", azx);
         Assert.Contains("Readme", azx);
         var nuget = File.ReadAllText(Path.Combine(repo, "src", "azx", "nuget.config"));
         Assert.Contains("key=\"local\"", nuget);

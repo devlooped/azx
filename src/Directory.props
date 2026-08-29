@@ -2,5 +2,14 @@
   <PropertyGroup>
     <Product>azx</Product>
     <ImplicitUsings>true</ImplicitUsings>
+    <!--
+      Pack analysis assumes a typical .NET library. The Azure CLI Payload and PackAsTool
+      host trip these constantly and none of them are actionable:
+      NU5100 assemblies outside lib/, NU5110/NU5111 .ps1 files that are not NuGet install
+      scripts (azps.ps1, Activate.ps1), NU5118/NU5119 payload collisions and dotfiles,
+      NU5123 paths > 200 chars in the CLI tree, NU5128/NU5129 TFM/lib and build/.targets
+      naming that do not apply to RID/tool packs.
+    -->
+    <NoWarn>$(NoWarn);NU5100;NU5110;NU5111;NU5118;NU5119;NU5123;NU5128;NU5129</NoWarn>
   </PropertyGroup>
 </Project>
