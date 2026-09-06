@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.90.0](https://github.com/devlooped/azx/tree/2.90.0) (2026-09-06)
+
+[Full Changelog](https://github.com/devlooped/azx/compare/2.89.1...2.90.0)
+
 ## [2.89.1](https://github.com/devlooped/azx/tree/2.89.1) (2026-08-29)
 
 [Full Changelog](https://github.com/devlooped/azx/compare/2.89.1-preview.2...2.89.1)
