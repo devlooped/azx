@@ -26,7 +26,7 @@
     <InternalsVisibleTo Include="Tests" />
     <PackageReference Include="JsonPeek" Version="1.3.0" PrivateAssets="all" GeneratePathProperty="true" />
     <PackageReference Include="JsonPoke" Version="1.3.0" PrivateAssets="all" GeneratePathProperty="true" />
-    <PackageReference Include="Readme" Version="1.2.1" PrivateAssets="all" />
+    <PackageReference Include="Readme" Version="1.2.2" PrivateAssets="all" />
   </ItemGroup>
 
   <Import Project="Azure.Cli.pack.targets" />
